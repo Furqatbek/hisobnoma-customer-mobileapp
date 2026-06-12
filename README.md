@@ -23,3 +23,33 @@ The design medium is **HTML/CSS/JS** — these are prototypes, not production co
 - `README.md` — this file
 - `chats/` — conversation transcripts (read these!)
 - `project/` — the `Mobile Shop Prototype` project files (HTML prototypes, assets, components)
+
+---
+
+# Implementation notes (Flutter app in `lib/`)
+
+## Payment flow (cash / card)
+
+- **Checkout** (`lib/screens/cart.dart`) — a «Тўлов усули» section offers CASH or CARD; the
+  choice is sent as `paymentMethod` on `POST /web/orders` and the last used method is the
+  next checkout's default (SharedPreferences).
+- **Payment screen** (`lib/screens/payment.dart`) — card orders continue here: provider list
+  (Payme / Click / Uzum Bank), opens the provider's checkout URL externally, then polls the
+  status — every 5 s for ~3 min, on app resume, and via a manual button. «Кейинроқ тўлайман»
+  always falls through (the courier can take the payment), so a missing backend never blocks
+  ordering.
+- **Order cards** (`lib/screens/account.dart`) — payment pill (Тўланган / Тўланмаган /
+  Қайтарилган), full receipt rows (delivery, discount, coupon, spent cashback) and a «Тўлаш»
+  button on unpaid card orders that reopens the payment screen (works for guests via the
+  status-lookup phone).
+
+### Backend contract consumed (all optional — UI degrades gracefully when absent)
+
+| API | Purpose |
+| --- | --- |
+| `POST /web/orders` body field `paymentMethod: CASH \| CARD` | persist the chosen method; echo it on the order DTO |
+| `POST /web/orders/{n}/payment` body `{phone, provider}` | create a payment; returns `{paymentUrl, status, provider, amount}` |
+| `GET /web/orders/{n}/payment?phone=…` | payment status: `PENDING \| PAID \| FAILED \| CANCELLED \| REFUNDED` |
+| Order DTO field `paymentStatus` | drives the status pills and the pay-again button |
+
+Tests for the flow live in `test/payment_flow_test.dart`.

@@ -29,12 +29,17 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserver {
+  /// Auto-polling stops after this many rounds (~3 min); the manual check
+  /// button and the on-resume check keep working.
+  static const _maxPolls = 36;
+
   String? _activeProvider; // provider whose checkout link is being created
   bool _waiting = false; // checkout page opened, awaiting confirmation
   bool _checking = false; // manual status check (drives the button spinner)
   bool _checkBusy = false; // any status check in flight (poll + manual guard)
   String? _error;
   Timer? _poll;
+  int _polls = 0;
 
   AppState get app => widget.app;
 
@@ -63,10 +68,14 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
   }
 
   /// Checkout replaces straight onto this screen (previous entry is the cart
-  /// root); the pay-again flow pushes it from history / status lookup instead.
+  /// root) and the success screen's "Тўлаш" pushes it; both should land on
+  /// the success screen. The pay-again flow (history / status lookup) pops
+  /// back instead.
   bool get _fromCheckout {
     final st = app.stack;
-    return st.length >= 2 && st[st.length - 2].name == 'cart';
+    if (st.length < 2) return false;
+    final prev = st[st.length - 2].name;
+    return prev == 'cart' || prev == 'success';
   }
 
   void _finish({required bool paid}) {
@@ -97,7 +106,14 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
       if (!mounted) return;
       setState(() => _waiting = true);
       _poll?.cancel();
-      _poll = Timer.periodic(const Duration(seconds: 5), (_) => _check(silent: true));
+      _polls = 0;
+      _poll = Timer.periodic(const Duration(seconds: 5), (t) {
+        if (++_polls > _maxPolls) {
+          t.cancel();
+          return;
+        }
+        _check(silent: true);
+      });
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } catch (_) {
@@ -199,9 +215,12 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                   const SizedBox(height: 12),
                   for (final (i, e) in paymentProviders.entries.indexed) ...[
                     if (i > 0) const SizedBox(height: 10),
-                    _ProviderRow(
-                      meta: e.value,
-                      busy: _activeProvider == e.key,
+                    OptionCard(
+                      icon: Text(e.value.name.substring(0, 1),
+                          style: ts(size: 16, weight: FontWeight.w700, color: e.value.color)),
+                      tileColor: e.value.color.withValues(alpha: 0.10),
+                      title: e.value.name,
+                      trailing: _activeProvider == e.key ? const Spinner(size: 18) : Ic.chevronR(),
                       onTap: () => _pay(e.key),
                     ),
                   ],
@@ -271,52 +290,3 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
   }
 }
 
-// ── Provider row (Payme / Click / Uzum) ─────────────────────────────────────
-class _ProviderRow extends StatelessWidget {
-  final PaymentProviderMeta meta;
-  final bool busy;
-  final VoidCallback onTap;
-  const _ProviderRow({required this.meta, required this.busy, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.bg,
-          borderRadius: BorderRadius.circular(AppRadii.card),
-          border: Border.all(color: AppColors.sep, width: 1.4),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: meta.color.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: Center(
-                child: Text(meta.name.substring(0, 1),
-                    style: ts(size: 16, weight: FontWeight.w700, color: meta.color)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(meta.name,
-                  style: ts(
-                      size: 15.5,
-                      weight: FontWeight.w600,
-                      color: AppColors.text,
-                      letterSpacing: -0.2)),
-            ),
-            if (busy) const Spinner(size: 18) else Ic.chevronR(),
-          ],
-        ),
-      ),
-    );
-  }
-}

@@ -416,9 +416,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 const SizedBox(height: 12),
                 for (final (i, e) in paymentMethods.entries.indexed) ...[
                   if (i > 0) const SizedBox(height: 10),
-                  _PayOption(
-                    id: e.key,
-                    meta: e.value,
+                  OptionCard(
+                    icon: e.key == 'CARD'
+                        ? Ic.card(AppColors.accent, 20)
+                        : Ic.cash(AppColors.accent, 20),
+                    title: tr(e.value.label),
+                    subtitle: tr(e.value.hint),
                     selected: _payMethod == e.key,
                     onTap: () => setState(() => _payMethod = e.key),
                   ),
@@ -531,70 +534,6 @@ class _ChevronDownPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-// ── Payment method option (checkout) ────────────────────────────────────────
-class _PayOption extends StatelessWidget {
-  final String id;
-  final PaymentMethodMeta meta;
-  final bool selected;
-  final VoidCallback onTap;
-  const _PayOption({required this.id, required this.meta, required this.selected, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.accentDim : AppColors.bg,
-          borderRadius: BorderRadius.circular(AppRadii.card),
-          border: Border.all(color: selected ? AppColors.accent : AppColors.sep, width: 1.4),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: selected ? AppColors.bg : AppColors.accentDim,
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: Center(child: id == 'CARD' ? Ic.card(AppColors.accent, 20) : Ic.cash(AppColors.accent, 20)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(tr(meta.label),
-                      style: ts(size: 15.5, weight: FontWeight.w600, color: AppColors.text, letterSpacing: -0.2)),
-                  const SizedBox(height: 2),
-                  Text(tr(meta.hint), style: ts(size: 13, color: AppColors.sec, letterSpacing: -0.1, height: 1.35)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: selected ? AppColors.accent : Colors.transparent,
-                border: selected ? null : Border.all(color: const Color.fromRGBO(60, 60, 67, 0.30), width: 1.6),
-              ),
-              child: selected ? Center(child: Ic.check(Colors.white, 12)) : null,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // ── Order success ───────────────────────────────────────────────────────────
 class OrderSuccessScreen extends StatelessWidget {
   final AppState app;
@@ -701,6 +640,16 @@ class OrderSuccessScreen extends StatelessWidget {
                 Text(tr('Тез орада сиз билан боғланамиз...'),
                     textAlign: TextAlign.center, style: ts(size: 14.5, color: AppColors.sec)),
                 const SizedBox(height: 36),
+                // Card order placed but not paid online yet — offer to pay now.
+                if (payMethod == 'CARD' && !paid) ...[
+                  BigButton(
+                    ghost: true,
+                    onTap: () => app.push(
+                        ScreenSpec('payment', orderNumber: orderNumber, total: total)),
+                    child: Text(tr('Тўлаш')),
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 BigButton(
                   onTap: () {
                     app.resetCartStack();

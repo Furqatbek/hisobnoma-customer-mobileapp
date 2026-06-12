@@ -660,6 +660,13 @@ class _OrderStatusScreenState extends State<OrderStatusScreen> {
     super.initState();
     _numCtrl = TextEditingController(text: widget.initialOrderNumber ?? '');
     _phone = app.lastOrderPhone.isNotEmpty ? app.lastOrderPhone : (app.user?.phone ?? '');
+    // Opened with a prefilled order (success screen / after pay-again) —
+    // look it up right away instead of making the user tap "Излаш".
+    if (_numCtrl.text.trim().isNotEmpty && _phone.replaceAll(RegExp(r'\D'), '').length == 9) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _lookup();
+      });
+    }
   }
 
   @override

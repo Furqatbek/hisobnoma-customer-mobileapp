@@ -322,6 +322,100 @@ class ShopChip extends StatelessWidget {
   }
 }
 
+// ── Option card (payment methods, providers, …) ─────────────────────────────
+/// Bordered tappable row: a 36×36 icon tile, a title (+ optional subtitle)
+/// and either a radio check (when [selected] is non-null) or a custom
+/// [trailing] widget (chevron, spinner, …).
+class OptionCard extends StatelessWidget {
+  final Widget icon;
+
+  /// Tile fill behind [icon]; defaults to the accent-dim used across the app.
+  final Color? tileColor;
+  final String title;
+  final String? subtitle;
+
+  /// Non-null turns the card into a radio option: accent border + dim fill
+  /// when true, with a trailing radio check.
+  final bool? selected;
+  final Widget? trailing;
+  final VoidCallback onTap;
+
+  const OptionCard({
+    super.key,
+    required this.icon,
+    this.tileColor,
+    required this.title,
+    this.subtitle,
+    this.selected,
+    this.trailing,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final sel = selected == true;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: sel ? AppColors.accentDim : AppColors.bg,
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          border: Border.all(color: sel ? AppColors.accent : AppColors.sep, width: 1.4),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: sel ? AppColors.bg : (tileColor ?? AppColors.accentDim),
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Center(child: icon),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: ts(size: 15.5, weight: FontWeight.w600, color: AppColors.text, letterSpacing: -0.2)),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 2),
+                    Text(subtitle!,
+                        style: ts(size: 13, color: AppColors.sec, letterSpacing: -0.1, height: 1.35)),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            if (selected != null)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: sel ? AppColors.accent : Colors.transparent,
+                  border: sel
+                      ? null
+                      : Border.all(color: const Color.fromRGBO(60, 60, 67, 0.30), width: 1.6),
+                ),
+                child: sel ? Center(child: Ic.check(Colors.white, 12)) : null,
+              )
+            else
+              ?trailing,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Quantity stepper ────────────────────────────────────────────────────────
 class ShopStepper extends StatelessWidget {
   final int qty;
