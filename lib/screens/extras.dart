@@ -256,6 +256,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 40),
         itemCount: _items.length,
         itemBuilder: (context, i) {
@@ -362,6 +363,21 @@ class _WalletScreenState extends State<WalletScreen> {
     });
   }
 
+  Future<void> _refresh() async {
+    if (!app.isLoggedIn) return;
+    try {
+      final d = await app.loyalty.loyalty();
+      if (mounted) {
+        setState(() {
+        _data = d;
+        _error = null;
+      });
+      }
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final top = topInset(context);
@@ -408,7 +424,10 @@ class _WalletScreenState extends State<WalletScreen> {
     final data = _data;
     return Container(
       color: AppColors.bg,
-      child: ListView(
+      child: RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.only(bottom: tabBarHeight(context) + 24),
         children: [
           title,
@@ -476,6 +495,7 @@ class _WalletScreenState extends State<WalletScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -606,6 +626,7 @@ class _CouponsScreenState extends State<CouponsScreen> {
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 40),
         itemCount: _items.length,
         itemBuilder: (context, i) => Padding(
@@ -765,7 +786,10 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
         children: [
           NavHeader(title: tr('Дўстларни таклиф қилиш'), onBack: app.pop),
           Expanded(
-            child: ListView(
+            child: RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 40),
               children: [
                 Column(
@@ -856,6 +880,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                   ],
                 ),
               ],
+            ),
             ),
           ),
         ],

@@ -142,6 +142,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
   }
 
+  Future<void> _refreshOrders() async {
+    final phone = app.user?.phone;
+    if (phone == null) return;
+    try {
+      final page = await app.orders.myOrders(size: 20);
+      if (mounted) {
+        setState(() {
+        _orders = page.content;
+        _ordersError = null;
+        _ordersLoading = false;
+        _loadedFor = phone;
+      });
+      }
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _ordersError = e.message);
+    }
+  }
+
   Widget _menuCard() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -254,7 +272,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return Container(
       color: AppColors.bg,
-      child: ListView(
+      child: RefreshIndicator(
+        onRefresh: _refreshOrders,
+        child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.only(bottom: tabBarHeight(context) + 24),
         children: [
           Padding(
@@ -320,6 +341,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
