@@ -16,7 +16,9 @@ class ScreenSpec {
   final String? orderNumber;
   final double? total;
   final String? payMethod;
-  const ScreenSpec(this.name, {this.productId, this.orderNumber, this.total, this.payMethod});
+  final bool? paid;
+  const ScreenSpec(this.name,
+      {this.productId, this.orderNumber, this.total, this.payMethod, this.paid});
 }
 
 enum NavMotion { push, pop, none }
@@ -34,6 +36,7 @@ class AppState extends ChangeNotifier {
         delivery = DeliveryRepository(_api),
         cartApi = CartRepository(_api),
         orders = OrderRepository(_api),
+        payments = PaymentRepository(_api),
         auth = AuthRepository(_api),
         loyalty = LoyaltyRepository(_api),
         wishlistApi = WishlistRepository(_api),
@@ -60,6 +63,7 @@ class AppState extends ChangeNotifier {
   final DeliveryRepository delivery;
   final CartRepository cartApi;
   final OrderRepository orders;
+  final PaymentRepository payments;
   final AuthRepository auth;
   final LoyaltyRepository loyalty;
   final WishlistRepository wishlistApi;

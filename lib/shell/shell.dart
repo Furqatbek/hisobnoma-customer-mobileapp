@@ -8,6 +8,7 @@ import '../widgets/components.dart';
 import '../widgets/icons.dart';
 import '../screens/catalog.dart';
 import '../screens/cart.dart';
+import '../screens/payment.dart';
 import '../screens/account.dart';
 import '../screens/extras.dart';
 import '../screens/wishlist.dart';
@@ -28,9 +29,15 @@ class ShopShell extends StatelessWidget {
         return CartScreen(app: app);
       case 'checkout':
         return CheckoutScreen(app: app);
+      case 'payment':
+        return PaymentScreen(app: app, orderNumber: s.orderNumber!, total: s.total!);
       case 'success':
         return OrderSuccessScreen(
-            app: app, orderNumber: s.orderNumber!, total: s.total!, payMethod: s.payMethod);
+            app: app,
+            orderNumber: s.orderNumber!,
+            total: s.total!,
+            payMethod: s.payMethod,
+            paid: s.paid ?? false);
       case 'profile':
         return ProfileScreen(app: app);
       case 'login':

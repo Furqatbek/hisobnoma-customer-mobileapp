@@ -99,6 +99,30 @@ class OrderRepository {
       _c.getPage('/web/me/orders', Order.fromJson, query: {'page': page, 'size': size});
 }
 
+/// Online payment for an order. Guest access mirrors the order lookup:
+/// the order's phone authorises the call.
+class PaymentRepository {
+  PaymentRepository(this._c);
+  final ApiClient _c;
+
+  /// Creates (or returns the pending) payment and the provider checkout URL.
+  Future<OrderPayment> create(String orderNumber,
+      {required String phoneE164, required String provider}) async {
+    final data = await _c.postData('/web/orders/$orderNumber/payment', body: {
+      'phone': phoneE164,
+      'provider': provider,
+    });
+    return OrderPayment.fromJson(data as Map<String, dynamic>);
+  }
+
+  /// Current payment status of an order.
+  Future<OrderPayment> status(String orderNumber, {required String phoneE164}) async {
+    final data =
+        await _c.getData('/web/orders/$orderNumber/payment', query: {'phone': phoneE164});
+    return OrderPayment.fromJson(data as Map<String, dynamic>);
+  }
+}
+
 class AuthRepository {
   AuthRepository(this._c);
   final ApiClient _c;

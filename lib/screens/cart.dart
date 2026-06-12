@@ -344,10 +344,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         note: _noteCtrl.text.trim(),
         paymentMethod: _payMethod,
       );
-      app.replace(ScreenSpec('success',
-          orderNumber: order.orderNumber,
-          total: order.totalAmount,
-          payMethod: order.paymentMethod.isNotEmpty ? order.paymentMethod : _payMethod));
+      if (_payMethod == 'CARD') {
+        // Card orders go through the online payment step first.
+        app.replace(
+            ScreenSpec('payment', orderNumber: order.orderNumber, total: order.totalAmount));
+      } else {
+        app.replace(ScreenSpec('success',
+            orderNumber: order.orderNumber,
+            total: order.totalAmount,
+            payMethod: order.paymentMethod.isNotEmpty ? order.paymentMethod : _payMethod));
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -595,8 +601,14 @@ class OrderSuccessScreen extends StatelessWidget {
   final String orderNumber;
   final double total;
   final String? payMethod;
+  final bool paid;
   const OrderSuccessScreen(
-      {super.key, required this.app, required this.orderNumber, required this.total, this.payMethod});
+      {super.key,
+      required this.app,
+      required this.orderNumber,
+      required this.total,
+      this.payMethod,
+      this.paid = false});
 
   @override
   Widget build(BuildContext context) {
@@ -664,6 +676,25 @@ class OrderSuccessScreen extends StatelessWidget {
                       Text('${tr('Тўлов')}: ${tr(paymentMethods[payMethod]!.label)}',
                           style: ts(size: 14.5, color: AppColors.sec)),
                     ],
+                  ),
+                ],
+                if (paid) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color.fromRGBO(30, 138, 76, 0.10),
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Ic.check(AppColors.green, 14),
+                        const SizedBox(width: 5),
+                        Text(tr('Тўланган'),
+                            style: ts(size: 13.5, weight: FontWeight.w600, color: AppColors.green)),
+                      ],
+                    ),
                   ),
                 ],
                 const SizedBox(height: 8),

@@ -430,3 +430,41 @@ const paymentMethods = <String, PaymentMethodMeta>{
   'CASH': PaymentMethodMeta(label: 'Нақд пул', hint: 'Етказиб берилганда нақд тўлайсиз'),
   'CARD': PaymentMethodMeta(label: 'Карта орқали', hint: 'Етказиб берилганда карта орқали тўлайсиз'),
 };
+
+/// Online payment state of an order, from `/web/orders/{n}/payment`.
+class OrderPayment {
+  final String status; // PENDING | PAID | FAILED | CANCELLED | NONE
+  final String provider; // PAYME | CLICK | UZUM | ''
+  final String paymentUrl; // provider checkout page (empty when n/a)
+  final double amount;
+  const OrderPayment({
+    required this.status,
+    required this.provider,
+    required this.paymentUrl,
+    required this.amount,
+  });
+
+  bool get isPaid => status == 'PAID';
+  bool get isFailed => status == 'FAILED' || status == 'CANCELLED';
+
+  factory OrderPayment.fromJson(Map<String, dynamic> j) => OrderPayment(
+        status: ((j['status'] ?? '') as String).toUpperCase(),
+        provider: ((j['provider'] ?? '') as String).toUpperCase(),
+        paymentUrl: (j['paymentUrl'] ?? j['url'] ?? '') as String,
+        amount: _d(j['amount']),
+      );
+}
+
+/// Online payment providers offered on the payment screen. Brand names stay
+/// untranslated; [color] tints the wordmark tile.
+class PaymentProviderMeta {
+  final String name;
+  final Color color;
+  const PaymentProviderMeta({required this.name, required this.color});
+}
+
+const paymentProviders = <String, PaymentProviderMeta>{
+  'PAYME': PaymentProviderMeta(name: 'Payme', color: Color(0xFF00A6A6)),
+  'CLICK': PaymentProviderMeta(name: 'Click', color: Color(0xFF0073EF)),
+  'UZUM': PaymentProviderMeta(name: 'Uzum Bank', color: Color(0xFF7000FF)),
+};
