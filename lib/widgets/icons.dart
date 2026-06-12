@@ -102,6 +102,19 @@ class Ic {
         '<path d="M12 20.5s-7.8-4.9-9.3-9.8C1.6 7 4 4 7.1 4c2 0 3.8 1.1 4.9 2.9C13.1 5.1 14.9 4 16.9 4 20 4 22.4 7 21.3 10.7c-1.5 4.9-9.3 9.8-9.3 9.8z" fill="#000"/>',
         '0 0 24 24', c, s);
 
+  static Widget cash([Color c = AppColors.accent, double s = 22]) => _svg(
+        '<rect x="2.5" y="5.5" width="19" height="13" rx="2" stroke="#000" stroke-width="1.8"/>'
+        '<circle cx="12" cy="12" r="2.7" stroke="#000" stroke-width="1.8"/>'
+        '<circle cx="6" cy="12" r="0.9" fill="#000"/>'
+        '<circle cx="18" cy="12" r="0.9" fill="#000"/>',
+        '0 0 24 24', c, s);
+
+  static Widget card([Color c = AppColors.accent, double s = 22]) => _svg(
+        '<rect x="2.5" y="5" width="19" height="14" rx="2.5" stroke="#000" stroke-width="1.8"/>'
+        '<path d="M2.5 9.5h19" stroke="#000" stroke-width="1.8"/>'
+        '<path d="M6 14.5h4.5" stroke="#000" stroke-width="1.8" stroke-linecap="round"/>',
+        '0 0 24 24', c, s);
+
   static Widget copy([Color c = AppColors.sec, double s = 16]) => _svg(
         '<rect x="7" y="7" width="10" height="10" rx="2.5" stroke="#000" stroke-width="1.6"/>'
         '<path d="M13 4.5V4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h.5" stroke="#000" stroke-width="1.6"/>',

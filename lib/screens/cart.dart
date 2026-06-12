@@ -279,6 +279,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _phone = '';
   int? _regionId;
   int? _villageId;
+  String _payMethod = 'CASH';
   String? _nameErr;
   bool _phoneErr = false;
   bool _submitting = false;
@@ -296,6 +297,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _nameCtrl = TextEditingController(text: app.user?.name ?? '');
     _noteCtrl = TextEditingController();
     _phone = app.user?.phone ?? '';
+    _payMethod = app.payMethod;
     _loadRegions();
   }
 
@@ -340,8 +342,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         regionId: _regionId,
         villageId: _villageId,
         note: _noteCtrl.text.trim(),
+        paymentMethod: _payMethod,
       );
-      app.replace(ScreenSpec('success', orderNumber: order.orderNumber, total: order.totalAmount));
+      app.replace(ScreenSpec('success',
+          orderNumber: order.orderNumber,
+          total: order.totalAmount,
+          payMethod: order.paymentMethod.isNotEmpty ? order.paymentMethod : _payMethod));
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -400,6 +406,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                 ],
                 const SizedBox(height: 24),
+                SectionHeader(tr('Тўлов усули')),
+                const SizedBox(height: 12),
+                for (final (i, e) in paymentMethods.entries.indexed) ...[
+                  if (i > 0) const SizedBox(height: 10),
+                  _PayOption(
+                    id: e.key,
+                    meta: e.value,
+                    selected: _payMethod == e.key,
+                    onTap: () => setState(() => _payMethod = e.key),
+                  ),
+                ],
+                const SizedBox(height: 24),
                 SectionHeader(tr('Қўшимча')),
                 const SizedBox(height: 12),
                 ShopTextField(controller: _noteCtrl, hint: tr('Изоҳ (ихтиёрий)'), maxLines: 3, height: null),
@@ -417,6 +435,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         const SizedBox(height: 9),
                         _summaryRow(tr('Етказиб бериш'), formatSum(fee)),
                       ],
+                      const SizedBox(height: 9),
+                      _summaryRow(tr('Тўлов'), tr(paymentMethods[_payMethod]?.label ?? '')),
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 9),
                         child: Divider(height: 0.5, thickness: 0.5, color: AppColors.sep),
@@ -505,12 +525,78 @@ class _ChevronDownPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
+// ── Payment method option (checkout) ────────────────────────────────────────
+class _PayOption extends StatelessWidget {
+  final String id;
+  final PaymentMethodMeta meta;
+  final bool selected;
+  final VoidCallback onTap;
+  const _PayOption({required this.id, required this.meta, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.accentDim : AppColors.bg,
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          border: Border.all(color: selected ? AppColors.accent : AppColors.sep, width: 1.4),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: selected ? AppColors.bg : AppColors.accentDim,
+                borderRadius: BorderRadius.circular(9),
+              ),
+              child: Center(child: id == 'CARD' ? Ic.card(AppColors.accent, 20) : Ic.cash(AppColors.accent, 20)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(tr(meta.label),
+                      style: ts(size: 15.5, weight: FontWeight.w600, color: AppColors.text, letterSpacing: -0.2)),
+                  const SizedBox(height: 2),
+                  Text(tr(meta.hint), style: ts(size: 13, color: AppColors.sec, letterSpacing: -0.1, height: 1.35)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: selected ? AppColors.accent : Colors.transparent,
+                border: selected ? null : Border.all(color: const Color.fromRGBO(60, 60, 67, 0.30), width: 1.6),
+              ),
+              child: selected ? Center(child: Ic.check(Colors.white, 12)) : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Order success ───────────────────────────────────────────────────────────
 class OrderSuccessScreen extends StatelessWidget {
   final AppState app;
   final String orderNumber;
   final double total;
-  const OrderSuccessScreen({super.key, required this.app, required this.orderNumber, required this.total});
+  final String? payMethod;
+  const OrderSuccessScreen(
+      {super.key, required this.app, required this.orderNumber, required this.total, this.payMethod});
 
   @override
   Widget build(BuildContext context) {
@@ -568,6 +654,18 @@ class OrderSuccessScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 Text(formatSum(total), style: ts(size: 17, weight: FontWeight.w600, color: AppColors.text)),
+                if (paymentMethods[payMethod] != null) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      payMethod == 'CARD' ? Ic.card(AppColors.sec, 16) : Ic.cash(AppColors.sec, 16),
+                      const SizedBox(width: 6),
+                      Text('${tr('Тўлов')}: ${tr(paymentMethods[payMethod]!.label)}',
+                          style: ts(size: 14.5, color: AppColors.sec)),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Text(tr('Тез орада сиз билан боғланамиз...'),
                     textAlign: TextAlign.center, style: ts(size: 14.5, color: AppColors.sec)),

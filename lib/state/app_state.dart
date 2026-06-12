@@ -15,13 +15,15 @@ class ScreenSpec {
   final int? productId;
   final String? orderNumber;
   final double? total;
-  const ScreenSpec(this.name, {this.productId, this.orderNumber, this.total});
+  final String? payMethod;
+  const ScreenSpec(this.name, {this.productId, this.orderNumber, this.total, this.payMethod});
 }
 
 enum NavMotion { push, pop, none }
 
 const _cartKey = 'hisobnoma-shop-cart-v1';
 const _langKey = 'hisobnoma-shop-lang';
+const _payKey = 'hisobnoma-shop-pay-method';
 
 /// Central app state: navigation, cart (client-side), the authenticated session,
 /// the server-backed wishlist, and the repositories every screen talks to.
@@ -44,6 +46,8 @@ class AppState extends ChangeNotifier {
       lang = l!;
       gLang = l;
     }
+    final pm = _prefs.getString(_payKey);
+    if (paymentMethods.containsKey(pm)) payMethod = pm!;
     _api.onUnauthorized = _onUnauthorized;
   }
 
@@ -90,6 +94,9 @@ class AppState extends ChangeNotifier {
 
   /// Local 9-digit phone of the last placed order (prefills status lookup).
   String lastOrderPhone = '';
+
+  /// Last chosen payment method (CASH | CARD) — the checkout default.
+  String payMethod = 'CASH';
 
   // ── wishlist (server-backed) ───────────────────────────────
   List<WishlistItem> wishlistItems = [];
@@ -344,6 +351,7 @@ class AppState extends ChangeNotifier {
     int? regionId,
     int? villageId,
     String? note,
+    String paymentMethod = 'CASH',
   }) async {
     final order = await orders.create(
       customerName: name,
@@ -351,9 +359,12 @@ class AppState extends ChangeNotifier {
       regionId: regionId,
       villageId: villageId,
       note: note,
+      paymentMethod: paymentMethod,
       lines: Map<int, int>.from(cart),
     );
     lastOrderPhone = local9;
+    payMethod = paymentMethod; // remember as the next checkout's default
+    _prefs.setString(_payKey, paymentMethod);
     cart.clear();
     _saveCart();
     notifyListeners();

@@ -133,6 +133,9 @@ class Order {
   final double couponDiscount;
   final double pointsSpent;
   final double totalAmount;
+
+  /// CASH | CARD; empty when the API doesn't expose it (legacy orders).
+  final String paymentMethod;
   final String createdAt; // ISO 8601
   final List<OrderLine> lines;
 
@@ -145,6 +148,7 @@ class Order {
     required this.couponDiscount,
     required this.pointsSpent,
     required this.totalAmount,
+    this.paymentMethod = '',
     required this.createdAt,
     required this.lines,
   });
@@ -158,6 +162,7 @@ class Order {
         couponDiscount: _d(j['couponDiscount']),
         pointsSpent: _d(j['pointsSpent']),
         totalAmount: _d(j['totalAmount']),
+        paymentMethod: ((j['paymentMethod'] ?? '') as String).toUpperCase(),
         createdAt: (j['createdAt'] ?? '') as String,
         lines: ((j['lines'] as List?) ?? [])
             .map((e) => OrderLine.fromJson(e as Map<String, dynamic>))
@@ -412,4 +417,16 @@ const orderStatus = <String, OrderStatusMeta>{
   'DELIVERING': OrderStatusMeta(label: 'Етказилмоқда', color: Color(0xFFB07E0A), bg: Color.fromRGBO(176, 126, 10, 0.12)),
   'COMPLETED': OrderStatusMeta(label: 'Бажарилган', color: Color(0xFF1E8A4C), bg: Color.fromRGBO(30, 138, 76, 0.12)),
   'CANCELLED': OrderStatusMeta(label: 'Бекор қилинган', color: Color(0xFFD63B2F), bg: Color.fromRGBO(214, 59, 47, 0.10)),
+};
+
+// ── Payment method presentation (UI mapping, labels run through tr()) ───────
+class PaymentMethodMeta {
+  final String label; // short name on summaries / order cards
+  final String hint; // checkout option subtitle
+  const PaymentMethodMeta({required this.label, required this.hint});
+}
+
+const paymentMethods = <String, PaymentMethodMeta>{
+  'CASH': PaymentMethodMeta(label: 'Нақд пул', hint: 'Етказиб берилганда нақд тўлайсиз'),
+  'CARD': PaymentMethodMeta(label: 'Карта орқали', hint: 'Етказиб берилганда карта орқали тўлайсиз'),
 };

@@ -74,6 +74,7 @@ class OrderRepository {
     String? note,
     String? couponCode,
     int? pointsToSpend,
+    String? paymentMethod,
     required Map<int, int> lines,
   }) async {
     final data = await _c.postData('/web/orders', body: {
@@ -84,6 +85,7 @@ class OrderRepository {
       if (note != null && note.isNotEmpty) 'note': note,
       if (couponCode != null && couponCode.isNotEmpty) 'couponCode': couponCode,
       if (pointsToSpend != null && pointsToSpend > 0) 'pointsToSpend': pointsToSpend,
+      if (paymentMethod != null && paymentMethod.isNotEmpty) 'paymentMethod': paymentMethod,
       'lines': lines.entries.map((e) => {'catalogItemId': e.key, 'quantity': e.value}).toList(),
     });
     return Order.fromJson(data as Map<String, dynamic>);

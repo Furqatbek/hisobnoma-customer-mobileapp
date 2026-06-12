@@ -78,6 +78,18 @@ class OrderCard extends StatelessWidget {
                   ],
                 ),
               ),
+            if (paymentMethods[order.paymentMethod] != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(tr('Тўлов'), style: ts(size: 14.5, color: AppColors.sec)),
+                    Text(tr(paymentMethods[order.paymentMethod]!.label),
+                        style: ts(size: 14.5, color: AppColors.sec)),
+                  ],
+                ),
+              ),
             const Padding(
               padding: EdgeInsets.only(bottom: 10),
               child: Divider(height: 0.5, thickness: 0.5, color: AppColors.sep),

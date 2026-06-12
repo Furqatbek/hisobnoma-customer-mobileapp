@@ -29,7 +29,8 @@ class ShopShell extends StatelessWidget {
       case 'checkout':
         return CheckoutScreen(app: app);
       case 'success':
-        return OrderSuccessScreen(app: app, orderNumber: s.orderNumber!, total: s.total!);
+        return OrderSuccessScreen(
+            app: app, orderNumber: s.orderNumber!, total: s.total!, payMethod: s.payMethod);
       case 'profile':
         return ProfileScreen(app: app);
       case 'login':
