@@ -14,7 +14,23 @@ import '../widgets/icons.dart';
 class OrderCard extends StatelessWidget {
   final Order order;
   final bool expanded;
-  const OrderCard({super.key, required this.order, this.expanded = true});
+
+  /// Shown as a "Тўлаш" button on unpaid card orders (null hides it).
+  final VoidCallback? onPay;
+  const OrderCard({super.key, required this.order, this.expanded = true, this.onPay});
+
+  Widget _feeRow(String label, String value, {Color valueColor = AppColors.sec}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: ts(size: 14.5, color: AppColors.sec)),
+          Text(value, style: ts(size: 14.5, color: valueColor)),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -68,16 +84,18 @@ class OrderCard extends StatelessWidget {
                 ),
               ),
             if (order.deliveryFee > 0)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(tr('Етказиб бериш'), style: ts(size: 14.5, color: AppColors.sec)),
-                    Text(formatSum(order.deliveryFee), style: ts(size: 14.5, color: AppColors.sec)),
-                  ],
-                ),
-              ),
+              _feeRow(tr('Етказиб бериш'), formatSum(order.deliveryFee)),
+            if (order.discountTotal > 0)
+              _feeRow(tr('Чегирма'), '−${formatSum(order.discountTotal)}',
+                  valueColor: AppColors.green),
+            if (order.couponDiscount > 0)
+              _feeRow(
+                  (order.couponCode ?? '').isNotEmpty ? 'Купон ${order.couponCode}' : 'Купон',
+                  '−${formatSum(order.couponDiscount)}',
+                  valueColor: AppColors.green),
+            if (order.pointsSpent > 0)
+              _feeRow(tr('Кешбек ишлатилди'), '−${formatSum(order.pointsSpent)}',
+                  valueColor: AppColors.green),
             if (paymentMethods[order.paymentMethod] != null)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -85,8 +103,22 @@ class OrderCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(tr('Тўлов'), style: ts(size: 14.5, color: AppColors.sec)),
-                    Text(tr(paymentMethods[order.paymentMethod]!.label),
-                        style: ts(size: 14.5, color: AppColors.sec)),
+                    Row(
+                      children: [
+                        Text(tr(paymentMethods[order.paymentMethod]!.label),
+                            style: ts(size: 14.5, color: AppColors.sec)),
+                        if (paymentStatusMeta[order.paymentStatus] case final m?) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                            decoration:
+                                BoxDecoration(color: m.bg, borderRadius: BorderRadius.circular(100)),
+                            child: Text(tr(m.label),
+                                style: ts(size: 12, weight: FontWeight.w600, color: m.color)),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -104,6 +136,10 @@ class OrderCard extends StatelessWidget {
                     style: ts(size: 17, weight: FontWeight.w700, color: AppColors.text, letterSpacing: -0.2)),
               ],
             ),
+            if (order.awaitingPayment && onPay != null) ...[
+              const SizedBox(height: 12),
+              BigButton(height: 42, onTap: onPay, child: Text(tr('Тўлаш'))),
+            ],
           ],
         ],
       ),
@@ -342,7 +378,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   )
                 else
                   for (final o in _orders)
-                    Padding(padding: const EdgeInsets.only(bottom: 12), child: OrderCard(order: o)),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: OrderCard(
+                        order: o,
+                        onPay: () => app.push(ScreenSpec('payment',
+                            orderNumber: o.orderNumber, total: o.totalAmount)),
+                      ),
+                    ),
               ],
             ),
           ),
@@ -633,6 +676,9 @@ class _OrderStatusScreenState extends State<OrderStatusScreen> {
     });
     try {
       final order = await app.orders.lookup(_numCtrl.text.trim(), phoneToE164(_phone));
+      // Remember the phone that authorised this order — the payment screen
+      // uses it for the pay-again flow.
+      app.lastOrderPhone = _phone.replaceAll(RegExp(r'\D'), '');
       if (mounted) {
         setState(() {
         _result = order;
@@ -681,7 +727,14 @@ class _OrderStatusScreenState extends State<OrderStatusScreen> {
                         textAlign: TextAlign.center, style: ts(size: 14.5, color: AppColors.red, height: 1.45)),
                   ),
                 if (_result != null)
-                  Padding(padding: const EdgeInsets.only(top: 6), child: OrderCard(order: _result!)),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: OrderCard(
+                      order: _result!,
+                      onPay: () => app.push(ScreenSpec('payment',
+                          orderNumber: _result!.orderNumber, total: _result!.totalAmount)),
+                    ),
+                  ),
               ],
             ),
           ),

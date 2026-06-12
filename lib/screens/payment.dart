@@ -62,6 +62,26 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
     return phoneToE164(local);
   }
 
+  /// Checkout replaces straight onto this screen (previous entry is the cart
+  /// root); the pay-again flow pushes it from history / status lookup instead.
+  bool get _fromCheckout {
+    final st = app.stack;
+    return st.length >= 2 && st[st.length - 2].name == 'cart';
+  }
+
+  void _finish({required bool paid}) {
+    _poll?.cancel();
+    if (_fromCheckout) {
+      app.replace(ScreenSpec('success',
+          orderNumber: widget.orderNumber,
+          total: widget.total,
+          payMethod: 'CARD',
+          paid: paid));
+    } else {
+      app.pop(); // back to the order list / status lookup
+    }
+  }
+
   Future<void> _pay(String provider) async {
     if (_activeProvider != null) return;
     setState(() {
@@ -95,13 +115,8 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
       final p = await app.payments.status(widget.orderNumber, phoneE164: _phoneE164);
       if (!mounted) return;
       if (p.isPaid) {
-        _poll?.cancel();
         app.toast(tr('Тўлов қабул қилинди!'));
-        app.replace(ScreenSpec('success',
-            orderNumber: widget.orderNumber,
-            total: widget.total,
-            payMethod: 'CARD',
-            paid: true));
+        _finish(paid: true);
         return;
       }
       if (p.isFailed) {
@@ -121,11 +136,7 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
     }
   }
 
-  void _payLater() {
-    _poll?.cancel();
-    app.replace(ScreenSpec('success',
-        orderNumber: widget.orderNumber, total: widget.total, payMethod: 'CARD'));
-  }
+  void _payLater() => _finish(paid: false);
 
   @override
   Widget build(BuildContext context) {

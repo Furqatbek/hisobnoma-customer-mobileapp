@@ -136,6 +136,10 @@ class Order {
 
   /// CASH | CARD; empty when the API doesn't expose it (legacy orders).
   final String paymentMethod;
+
+  /// PAID | PENDING | NONE | FAILED | CANCELLED | REFUNDED; empty when the
+  /// API doesn't expose it — then no payment state is shown at all.
+  final String paymentStatus;
   final String createdAt; // ISO 8601
   final List<OrderLine> lines;
 
@@ -149,9 +153,21 @@ class Order {
     required this.pointsSpent,
     required this.totalAmount,
     this.paymentMethod = '',
+    this.paymentStatus = '',
     required this.createdAt,
     required this.lines,
   });
+
+  bool get isPaid => paymentStatus == 'PAID';
+
+  static const _unpaid = {'PENDING', 'NONE', 'FAILED', 'CANCELLED'};
+
+  /// Unpaid card order that can still be paid online.
+  bool get awaitingPayment =>
+      paymentMethod == 'CARD' &&
+      _unpaid.contains(paymentStatus) &&
+      status != 'COMPLETED' &&
+      status != 'CANCELLED';
 
   factory Order.fromJson(Map<String, dynamic> j) => Order(
         orderNumber: (j['orderNumber'] ?? '') as String,
@@ -163,6 +179,7 @@ class Order {
         pointsSpent: _d(j['pointsSpent']),
         totalAmount: _d(j['totalAmount']),
         paymentMethod: ((j['paymentMethod'] ?? '') as String).toUpperCase(),
+        paymentStatus: ((j['paymentStatus'] ?? '') as String).toUpperCase(),
         createdAt: (j['createdAt'] ?? '') as String,
         lines: ((j['lines'] as List?) ?? [])
             .map((e) => OrderLine.fromJson(e as Map<String, dynamic>))
@@ -467,4 +484,14 @@ const paymentProviders = <String, PaymentProviderMeta>{
   'PAYME': PaymentProviderMeta(name: 'Payme', color: Color(0xFF00A6A6)),
   'CLICK': PaymentProviderMeta(name: 'Click', color: Color(0xFF0073EF)),
   'UZUM': PaymentProviderMeta(name: 'Uzum Bank', color: Color(0xFF7000FF)),
+};
+
+// ── Payment status presentation (pill on order cards) ───────────────────────
+const paymentStatusMeta = <String, OrderStatusMeta>{
+  'PENDING': OrderStatusMeta(label: 'Тўланмаган', color: Color(0xFFE8730C), bg: Color.fromRGBO(232, 115, 12, 0.12)),
+  'NONE': OrderStatusMeta(label: 'Тўланмаган', color: Color(0xFFE8730C), bg: Color.fromRGBO(232, 115, 12, 0.12)),
+  'FAILED': OrderStatusMeta(label: 'Тўланмаган', color: Color(0xFFE8730C), bg: Color.fromRGBO(232, 115, 12, 0.12)),
+  'CANCELLED': OrderStatusMeta(label: 'Тўланмаган', color: Color(0xFFE8730C), bg: Color.fromRGBO(232, 115, 12, 0.12)),
+  'PAID': OrderStatusMeta(label: 'Тўланган', color: Color(0xFF1E8A4C), bg: Color.fromRGBO(30, 138, 76, 0.12)),
+  'REFUNDED': OrderStatusMeta(label: 'Қайтарилган', color: Color(0xFF1D6FE0), bg: Color.fromRGBO(29, 111, 224, 0.10)),
 };
