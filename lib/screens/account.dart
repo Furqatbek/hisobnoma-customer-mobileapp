@@ -542,10 +542,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     focusNode: _codeFocus,
                     keyboardType: TextInputType.number,
                     maxLength: 6,
+                    // iOS surfaces the SMS code above the keyboard; Android
+                    // wires the autofill framework. Auto-submits on full code.
+                    autofillHints: const [AutofillHints.oneTimeCode],
                     onChanged: (v) {
                       final digits = v.replaceAll(RegExp(r'\D'), '');
                       if (digits != v) _codeCtrl.text = digits;
                       setState(() {});
+                      if (digits.length == 6 && !_sending) _verify();
                     },
                     decoration: const InputDecoration(counterText: '', border: InputBorder.none),
                   ),

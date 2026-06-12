@@ -277,9 +277,27 @@ class AuthSession {
 class ShopUser {
   final String phone;
   final String name;
-  const ShopUser({required this.phone, required this.name});
-  factory ShopUser.fromJson(Map<String, dynamic> j) =>
-      ShopUser(phone: (j['phone'] ?? '') as String, name: (j['name'] ?? '') as String);
+
+  /// Public loyalty identifier (e.g. "WC-00001"); empty until the API exposes
+  /// it on /web/me. Used to build the wallet QR deep link.
+  final String customerCode;
+
+  /// Tenant slug for the deep link; empty falls back to ApiConfig.tenantSlug.
+  final String tenantSlug;
+
+  const ShopUser({
+    required this.phone,
+    required this.name,
+    this.customerCode = '',
+    this.tenantSlug = '',
+  });
+
+  factory ShopUser.fromJson(Map<String, dynamic> j) => ShopUser(
+        phone: (j['phone'] ?? '') as String,
+        name: (j['name'] ?? '') as String,
+        customerCode: (j['customerCode'] ?? '') as String,
+        tenantSlug: (j['tenantSlug'] ?? '') as String,
+      );
 }
 
 /// Cart pricing preview from `POST /web/cart/price`.

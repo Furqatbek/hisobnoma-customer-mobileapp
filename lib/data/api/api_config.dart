@@ -20,6 +20,14 @@ class ApiConfig {
   static const String shopTelegram =
       String.fromEnvironment('SHOP_TELEGRAM', defaultValue: '@hisobnoma_shop');
 
+  /// Wallet QR deep-link config. The QR encodes
+  /// `$walletQrBase/$tenantSlug/$customerCode` (a public loyalty deep link).
+  /// Leave [tenantSlug] empty to source it from the API (/web/me) instead.
+  static const String walletQrBase =
+      String.fromEnvironment('WALLET_QR_BASE', defaultValue: 'https://hisobnoma.uz/w');
+  static const String tenantSlug =
+      String.fromEnvironment('API_TENANT_SLUG', defaultValue: '');
+
   /// Origin (scheme://host:port) used to resolve relative image URLs like
   /// `/uploads/products/1/main.jpg`.
   static String get imageOrigin => Uri.parse(baseUrl).origin;

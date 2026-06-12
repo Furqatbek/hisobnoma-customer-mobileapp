@@ -262,7 +262,12 @@ class AppState extends ChangeNotifier {
   Future<void> verifyOtp(String local9, String code, {String? name, String? referralCode}) async {
     final session = await auth.verify(phoneToE164(local9), code, name: name, referralCode: referralCode);
     await _tokens.save(session.token);
-    user = ShopUser(phone: phoneFromE164(session.phone), name: session.name);
+    // Pull the full profile (customerCode etc.); fall back to the verify payload.
+    try {
+      user = await auth.me();
+    } catch (_) {
+      user = ShopUser(phone: phoneFromE164(session.phone), name: session.name);
+    }
     await refreshWishlist();
     await refreshUnread();
     notifyListeners();

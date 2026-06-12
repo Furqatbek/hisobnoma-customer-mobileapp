@@ -1,0 +1,287 @@
+diff --git a/lib/data/api/api_config.dart b/lib/data/api/api_config.dart
+index e82e552..9526d3d 100644
+--- a/lib/data/api/api_config.dart
++++ b/lib/data/api/api_config.dart
+@@ -20,6 +20,14 @@ class ApiConfig {
+   static const String shopTelegram =
+       String.fromEnvironment('SHOP_TELEGRAM', defaultValue: '@hisobnoma_shop');
+ 
++  /// Wallet QR deep-link config. The QR encodes
++  /// `$walletQrBase/$tenantSlug/$customerCode` (a public loyalty deep link).
++  /// Leave [tenantSlug] empty to source it from the API (/web/me) instead.
++  static const String walletQrBase =
++      String.fromEnvironment('WALLET_QR_BASE', defaultValue: 'https://hisobnoma.uz/w');
++  static const String tenantSlug =
++      String.fromEnvironment('API_TENANT_SLUG', defaultValue: '');
++
+   /// Origin (scheme://host:port) used to resolve relative image URLs like
+   /// `/uploads/products/1/main.jpg`.
+   static String get imageOrigin => Uri.parse(baseUrl).origin;
+diff --git a/lib/data/models.dart b/lib/data/models.dart
+index 3a2b56d..bf6029d 100644
+--- a/lib/data/models.dart
++++ b/lib/data/models.dart
+@@ -277,9 +277,27 @@ class AuthSession {
+ class ShopUser {
+   final String phone;
+   final String name;
+-  const ShopUser({required this.phone, required this.name});
+-  factory ShopUser.fromJson(Map<String, dynamic> j) =>
+-      ShopUser(phone: (j['phone'] ?? '') as String, name: (j['name'] ?? '') as String);
++
++  /// Public loyalty identifier (e.g. "WC-00001"); empty until the API exposes
++  /// it on /web/me. Used to build the wallet QR deep link.
++  final String customerCode;
++
++  /// Tenant slug for the deep link; empty falls back to ApiConfig.tenantSlug.
++  final String tenantSlug;
++
++  const ShopUser({
++    required this.phone,
++    required this.name,
++    this.customerCode = '',
++    this.tenantSlug = '',
++  });
++
++  factory ShopUser.fromJson(Map<String, dynamic> j) => ShopUser(
++        phone: (j['phone'] ?? '') as String,
++        name: (j['name'] ?? '') as String,
++        customerCode: (j['customerCode'] ?? '') as String,
++        tenantSlug: (j['tenantSlug'] ?? '') as String,
++      );
+ }
+ 
+ /// Cart pricing preview from `POST /web/cart/price`.
+diff --git a/lib/screens/account.dart b/lib/screens/account.dart
+index 49a1ba4..7ca8a58 100644
+--- a/lib/screens/account.dart
++++ b/lib/screens/account.dart
+@@ -542,10 +542,14 @@ class _LoginScreenState extends State<LoginScreen> {
+                     focusNode: _codeFocus,
+                     keyboardType: TextInputType.number,
+                     maxLength: 6,
++                    // iOS surfaces the SMS code above the keyboard; Android
++                    // wires the autofill framework. Auto-submits on full code.
++                    autofillHints: const [AutofillHints.oneTimeCode],
+                     onChanged: (v) {
+                       final digits = v.replaceAll(RegExp(r'\D'), '');
+                       if (digits != v) _codeCtrl.text = digits;
+                       setState(() {});
++                      if (digits.length == 6 && !_sending) _verify();
+                     },
+                     decoration: const InputDecoration(counterText: '', border: InputBorder.none),
+                   ),
+diff --git a/lib/screens/extras.dart b/lib/screens/extras.dart
+index cb4e5e5..61a5d73 100644
+--- a/lib/screens/extras.dart
++++ b/lib/screens/extras.dart
+@@ -1,7 +1,9 @@
+ import 'package:flutter/material.dart';
+ import 'package:flutter/services.dart';
++import 'package:qr_flutter/qr_flutter.dart';
+ 
+ import '../data/api/api_client.dart';
++import '../data/api/api_config.dart';
+ import '../data/format.dart';
+ import '../data/models.dart';
+ import '../data/strings.dart';
+@@ -378,6 +380,106 @@ class _WalletScreenState extends State<WalletScreen> {
+     }
+   }
+ 
++  /// Real scannable QR encoding the loyalty deep link
++  /// `$base/$slug/$customerCode`. Falls back to the decorative placeholder
++  /// until the API exposes `customerCode` (and a slug) on /web/me.
++  Widget _walletQr() {
++    final code = app.user?.customerCode ?? '';
++    final slug = (app.user?.tenantSlug.isNotEmpty ?? false) ? app.user!.tenantSlug : ApiConfig.tenantSlug;
++    if (code.isNotEmpty && slug.isNotEmpty && ApiConfig.walletQrBase.isNotEmpty) {
++      return QrImageView(
++        data: '${ApiConfig.walletQrBase}/$slug/$code',
++        version: QrVersions.auto,
++        size: 196,
++        backgroundColor: Colors.white,
++        eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Color(0xFF0B0B0C)),
++        dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Color(0xFF0B0B0C)),
++      );
++    }
++    return PseudoQR(seed: 'wallet-${app.user!.phone}', size: 196);
++  }
++
++  /// "Scan at checkout" help sheet — explains the cashier flow.
++  void _showScanHelp(BuildContext context) {
++    final steps = [
++      tr2('Кассирга ушбу QR кодни кўрсатинг', 'Покажите этот QR кассиру'),
++      tr2('Кассир кодни сканерлайди', 'Кассир сканирует код'),
++      tr2('Кешбек ҳамёнингизга қўшилади ёки тўловда ишлатилади',
++          'Кешбэк начислится на кошелёк или спишется при оплате'),
++    ];
++    showModalBottomSheet<void>(
++      context: context,
++      backgroundColor: AppColors.bg,
++      isScrollControlled: true,
++      shape: const RoundedRectangleBorder(
++        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
++      ),
++      builder: (sheetCtx) => SafeArea(
++        top: false,
++        child: Padding(
++          padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
++          child: Column(
++            mainAxisSize: MainAxisSize.min,
++            crossAxisAlignment: CrossAxisAlignment.stretch,
++            children: [
++              Center(
++                child: Container(
++                  width: 36,
++                  height: 4,
++                  decoration: BoxDecoration(
++                    color: const Color.fromRGBO(60, 60, 67, 0.25),
++                    borderRadius: BorderRadius.circular(100),
++                  ),
++                ),
++              ),
++              const SizedBox(height: 18),
++              Container(
++                width: 56,
++                height: 56,
++                decoration: const BoxDecoration(color: AppColors.accentDim, shape: BoxShape.circle),
++                child: Center(child: Ic.qr(AppColors.accent, 28)),
++              ),
++              const SizedBox(height: 14),
++              Text(tr2('Кассада тўлаш', 'Оплата на кассе'),
++                  textAlign: TextAlign.center,
++                  style: ts(size: 19, weight: FontWeight.w700, color: AppColors.text, letterSpacing: -0.3)),
++              const SizedBox(height: 18),
++              for (var i = 0; i < steps.length; i++)
++                Padding(
++                  padding: const EdgeInsets.only(bottom: 14),
++                  child: Row(
++                    crossAxisAlignment: CrossAxisAlignment.start,
++                    children: [
++                      Container(
++                        width: 28,
++                        height: 28,
++                        decoration: const BoxDecoration(color: AppColors.accentDim, shape: BoxShape.circle),
++                        child: Center(
++                          child: Text('${i + 1}', style: ts(size: 14, weight: FontWeight.w700, color: AppColors.accent)),
++                        ),
++                      ),
++                      const SizedBox(width: 12),
++                      Expanded(
++                        child: Padding(
++                          padding: const EdgeInsets.only(top: 3),
++                          child: Text(steps[i], style: ts(size: 15.5, color: AppColors.text, letterSpacing: -0.2, height: 1.4)),
++                        ),
++                      ),
++                    ],
++                  ),
++                ),
++              const SizedBox(height: 8),
++              BigButton(
++                onTap: () => Navigator.of(sheetCtx).pop(),
++                child: Text(tr2('Тушунарли', 'Понятно')),
++              ),
++            ],
++          ),
++        ),
++      ),
++    );
++  }
++
+   @override
+   Widget build(BuildContext context) {
+     final top = topInset(context);
+@@ -463,9 +565,12 @@ class _WalletScreenState extends State<WalletScreen> {
+               ),
+               child: Column(
+                 children: [
+-                  PseudoQR(seed: 'wallet-${app.user!.phone}', size: 196),
++                  _walletQr(),
+                   const SizedBox(height: 12),
+-                  Text(formatPhone(app.user!.phone),
++                  Text(
++                      app.user!.customerCode.isNotEmpty
++                          ? app.user!.customerCode
++                          : formatPhone(app.user!.phone),
+                       style: TextStyle(fontFamily: kMonoFamily, fontSize: 13.5, color: AppColors.sec, letterSpacing: 0.5)),
+                   const SizedBox(height: 12),
+                   ConstrainedBox(
+@@ -473,6 +578,20 @@ class _WalletScreenState extends State<WalletScreen> {
+                     child: Text(tr('Кассада QR кодни кўрсатинг — кешбек ҳамёнингизга ўтказилади'),
+                         textAlign: TextAlign.center, style: ts(size: 14, color: AppColors.sec, letterSpacing: -0.15, height: 1.45)),
+                   ),
++                  const SizedBox(height: 6),
++                  ShopTextButton(
++                    fontSize: 14,
++                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
++                    onTap: () => _showScanHelp(context),
++                    child: Row(
++                      mainAxisSize: MainAxisSize.min,
++                      children: [
++                        const Icon(Icons.help_outline_rounded, size: 16, color: AppColors.accent),
++                        const SizedBox(width: 6),
++                        Text(tr2('Қандай ишлайди?', 'Как это работает?')),
++                      ],
++                    ),
++                  ),
+                 ],
+               ),
+             ),
+diff --git a/lib/state/app_state.dart b/lib/state/app_state.dart
+index a809b0d..0b68f5d 100644
+--- a/lib/state/app_state.dart
++++ b/lib/state/app_state.dart
+@@ -262,7 +262,12 @@ class AppState extends ChangeNotifier {
+   Future<void> verifyOtp(String local9, String code, {String? name, String? referralCode}) async {
+     final session = await auth.verify(phoneToE164(local9), code, name: name, referralCode: referralCode);
+     await _tokens.save(session.token);
+-    user = ShopUser(phone: phoneFromE164(session.phone), name: session.name);
++    // Pull the full profile (customerCode etc.); fall back to the verify payload.
++    try {
++      user = await auth.me();
++    } catch (_) {
++      user = ShopUser(phone: phoneFromE164(session.phone), name: session.name);
++    }
+     await refreshWishlist();
+     await refreshUnread();
+     notifyListeners();
+diff --git a/pubspec.lock b/pubspec.lock
+index 68c87c6..dac667e 100644
+--- a/pubspec.lock
++++ b/pubspec.lock
+@@ -440,6 +440,22 @@ packages:
+       url: "https://pub.dev"
+     source: hosted
+     version: "2.2.0"
++  qr:
++    dependency: transitive
++    description:
++      name: qr
++      sha256: "5a1d2586170e172b8a8c8470bbbffd5eb0cd38a66c0d77155ea138d3af3a4445"
++      url: "https://pub.dev"
++    source: hosted
++    version: "3.0.2"
++  qr_flutter:
++    dependency: "direct main"
++    description:
++      name: qr_flutter
++      sha256: "5095f0fc6e3f71d08adef8feccc8cea4f12eec18a2e31c2e8d82cb6019f4b097"
++      url: "https://pub.dev"
++    source: hosted
++    version: "4.1.0"
+   record_use:
+     dependency: transitive
+     description:
+diff --git a/pubspec.yaml b/pubspec.yaml
+index f005853..8610879 100644
+--- a/pubspec.yaml
++++ b/pubspec.yaml
+@@ -40,6 +40,7 @@ dependencies:
+   collection: ^1.19.1
+   dio: ^5.9.2
+   flutter_secure_storage: ^10.3.1
++  qr_flutter: ^4.1.0
+ 
+ dev_dependencies:
+   flutter_test:

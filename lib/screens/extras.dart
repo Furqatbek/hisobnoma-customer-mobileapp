@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../data/api/api_client.dart';
+import '../data/api/api_config.dart';
 import '../data/format.dart';
 import '../data/models.dart';
 import '../data/strings.dart';
@@ -378,6 +380,106 @@ class _WalletScreenState extends State<WalletScreen> {
     }
   }
 
+  /// Real scannable QR encoding the loyalty deep link
+  /// `$base/$slug/$customerCode`. Falls back to the decorative placeholder
+  /// until the API exposes `customerCode` (and a slug) on /web/me.
+  Widget _walletQr() {
+    final code = app.user?.customerCode ?? '';
+    final slug = (app.user?.tenantSlug.isNotEmpty ?? false) ? app.user!.tenantSlug : ApiConfig.tenantSlug;
+    if (code.isNotEmpty && slug.isNotEmpty && ApiConfig.walletQrBase.isNotEmpty) {
+      return QrImageView(
+        data: '${ApiConfig.walletQrBase}/$slug/$code',
+        version: QrVersions.auto,
+        size: 196,
+        backgroundColor: Colors.white,
+        eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Color(0xFF0B0B0C)),
+        dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Color(0xFF0B0B0C)),
+      );
+    }
+    return PseudoQR(seed: 'wallet-${app.user!.phone}', size: 196);
+  }
+
+  /// "Scan at checkout" help sheet — explains the cashier flow.
+  void _showScanHelp(BuildContext context) {
+    final steps = [
+      tr2('Кассирга ушбу QR кодни кўрсатинг', 'Покажите этот QR кассиру'),
+      tr2('Кассир кодни сканерлайди', 'Кассир сканирует код'),
+      tr2('Кешбек ҳамёнингизга қўшилади ёки тўловда ишлатилади',
+          'Кешбэк начислится на кошелёк или спишется при оплате'),
+    ];
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.bg,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color.fromRGBO(60, 60, 67, 0.25),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: const BoxDecoration(color: AppColors.accentDim, shape: BoxShape.circle),
+                child: Center(child: Ic.qr(AppColors.accent, 28)),
+              ),
+              const SizedBox(height: 14),
+              Text(tr2('Кассада тўлаш', 'Оплата на кассе'),
+                  textAlign: TextAlign.center,
+                  style: ts(size: 19, weight: FontWeight.w700, color: AppColors.text, letterSpacing: -0.3)),
+              const SizedBox(height: 18),
+              for (var i = 0; i < steps.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: const BoxDecoration(color: AppColors.accentDim, shape: BoxShape.circle),
+                        child: Center(
+                          child: Text('${i + 1}', style: ts(size: 14, weight: FontWeight.w700, color: AppColors.accent)),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 3),
+                          child: Text(steps[i], style: ts(size: 15.5, color: AppColors.text, letterSpacing: -0.2, height: 1.4)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 8),
+              BigButton(
+                onTap: () => Navigator.of(sheetCtx).pop(),
+                child: Text(tr2('Тушунарли', 'Понятно')),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final top = topInset(context);
@@ -463,15 +565,32 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
               child: Column(
                 children: [
-                  PseudoQR(seed: 'wallet-${app.user!.phone}', size: 196),
+                  _walletQr(),
                   const SizedBox(height: 12),
-                  Text(formatPhone(app.user!.phone),
+                  Text(
+                      app.user!.customerCode.isNotEmpty
+                          ? app.user!.customerCode
+                          : formatPhone(app.user!.phone),
                       style: TextStyle(fontFamily: kMonoFamily, fontSize: 13.5, color: AppColors.sec, letterSpacing: 0.5)),
                   const SizedBox(height: 12),
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 280),
                     child: Text(tr('Кассада QR кодни кўрсатинг — кешбек ҳамёнингизга ўтказилади'),
                         textAlign: TextAlign.center, style: ts(size: 14, color: AppColors.sec, letterSpacing: -0.15, height: 1.45)),
+                  ),
+                  const SizedBox(height: 6),
+                  ShopTextButton(
+                    fontSize: 14,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    onTap: () => _showScanHelp(context),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.help_outline_rounded, size: 16, color: AppColors.accent),
+                        const SizedBox(width: 6),
+                        Text(tr2('Қандай ишлайди?', 'Как это работает?')),
+                      ],
+                    ),
                   ),
                 ],
               ),
