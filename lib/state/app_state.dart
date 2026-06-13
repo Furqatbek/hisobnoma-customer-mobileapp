@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,34 +7,25 @@ import '../data/format.dart';
 import '../data/models.dart';
 import '../data/repositories.dart';
 import '../data/strings.dart';
+import 'cart_controller.dart';
+import 'nav_controller.dart';
 
-/// A single entry on a tab's navigation stack.
-class ScreenSpec {
-  final String name;
-  final int? productId;
-  final String? orderNumber;
-  final double? total;
-  final String? payMethod;
-  final bool? paid;
-  const ScreenSpec(this.name,
-      {this.productId, this.orderNumber, this.total, this.payMethod, this.paid});
-}
+// Re-export so the many `import '../state/app_state.dart'` consumers keep
+// seeing ScreenSpec / NavMotion / NavController.
+export 'nav_controller.dart';
 
-enum NavMotion { push, pop, none }
-
-const _cartKey = 'hisobnoma-shop-cart-v1';
 const _langKey = 'hisobnoma-shop-lang';
-const _payKey = 'hisobnoma-shop-pay-method';
-const _ordersKey = 'hisobnoma-shop-recent-orders';
-const _lastPhoneKey = 'hisobnoma-shop-last-phone';
 const _otpUntilKey = 'hisobnoma-shop-otp-until';
 
-/// Central app state: navigation, cart (client-side), the authenticated session,
-/// the server-backed wishlist, and the repositories every screen talks to.
+/// App-wide facade over focused sub-controllers. It composes [NavController]
+/// (navigation) and [CartController] (cart + order placement), re-broadcasts
+/// their changes, and owns what's left: the authenticated session, the
+/// server-backed wishlist, notifications, language and the toast. Screens keep
+/// talking to a single `AppState`; the delegating members below forward to the
+/// right controller so call sites don't need to know the split.
 class AppState extends ChangeNotifier {
   AppState(this._prefs, this._tokens, this._api)
-      : cart = _loadCart(_prefs),
-        catalog = CatalogRepository(_api),
+      : catalog = CatalogRepository(_api),
         delivery = DeliveryRepository(_api),
         cartApi = CartRepository(_api),
         orders = OrderRepository(_api),
@@ -47,15 +37,16 @@ class AppState extends ChangeNotifier {
         notificationsApi = NotificationRepository(_api),
         couponsApi = CouponRepository(_api),
         deviceTokens = DeviceTokenRepository(_api) {
+    _nav = NavController();
+    _cart = CartController(_prefs, catalog, orders);
+    _nav.addListener(notifyListeners);
+    _cart.addListener(notifyListeners);
+
     final l = _prefs.getString(_langKey);
     if (l == 'uz' || l == 'ru') {
       lang = l!;
       gLang = l;
     }
-    final pm = _prefs.getString(_payKey);
-    if (paymentMethods.containsKey(pm)) payMethod = pm!;
-    lastOrderPhone = _prefs.getString(_lastPhoneKey) ?? '';
-    recentOrders = _loadRecentOrders(_prefs);
     final until = _prefs.getInt(_otpUntilKey);
     if (until != null) otpCooldownUntil = DateTime.fromMillisecondsSinceEpoch(until);
     _api.onUnauthorized = _onUnauthorized;
@@ -64,6 +55,9 @@ class AppState extends ChangeNotifier {
   final SharedPreferences _prefs;
   final TokenStore _tokens;
   final ApiClient _api;
+
+  late final NavController _nav;
+  late final CartController _cart;
 
   // repositories
   final CatalogRepository catalog;
@@ -79,41 +73,67 @@ class AppState extends ChangeNotifier {
   final CouponRepository couponsApi;
   final DeviceTokenRepository deviceTokens;
 
-  // ── navigation ─────────────────────────────────────────────
-  String tab = 'catalog';
-  NavMotion motion = NavMotion.none;
-  final Map<String, List<ScreenSpec>> stacks = {
-    'catalog': [const ScreenSpec('catalog')],
-    'cart': [const ScreenSpec('cart')],
-    'wallet': [const ScreenSpec('wallet')],
-    'wishlist': [const ScreenSpec('wishlist')],
-    'profile': [const ScreenSpec('profile')],
-  };
-  List<ScreenSpec> get stack => stacks[tab]!;
-  ScreenSpec get screen => stack.last;
-  bool get showTabBar => stack.length == 1;
+  @override
+  void dispose() {
+    _nav.dispose();
+    _cart.dispose();
+    super.dispose();
+  }
+
+  // ── navigation (delegates to NavController) ────────────────
+  String get tab => _nav.tab;
+  NavMotion get motion => _nav.motion;
+  Map<String, List<ScreenSpec>> get stacks => _nav.stacks;
+  List<ScreenSpec> get stack => _nav.stack;
+  ScreenSpec get screen => _nav.screen;
+  bool get showTabBar => _nav.showTabBar;
+  void setTab(String t) => _nav.setTab(t);
+  void push(ScreenSpec s) => _nav.push(s);
+  void pop() => _nav.pop();
+  void replace(ScreenSpec s) => _nav.replace(s);
+  void resetCartStack() => _nav.resetCartStack();
+
+  // ── cart + orders (delegates to CartController) ────────────
+  Map<int, int> get cart => _cart.cart;
+  Map<int, Product> get productCache => _cart.productCache;
+  int get cartCount => _cart.cartCount;
+  int get bounceToken => _cart.bounceToken;
+  List<LocalOrderRef> get recentOrders => _cart.recentOrders;
+  String get lastOrderPhone => _cart.lastOrderPhone;
+  set lastOrderPhone(String v) => _cart.lastOrderPhone = v;
+  String get payMethod => _cart.payMethod;
+  void cacheProduct(Product p) => _cart.cacheProduct(p);
+  void addToCart(Product product) => _cart.addToCart(product);
+  void setQty(int id, int qty) => _cart.setQty(id, qty);
+  Future<void> refreshCartProducts() => _cart.refreshCartProducts();
+  void markLocalOrderPaid(String orderNumber) => _cart.markLocalOrderPaid(orderNumber);
+  Future<Order> placeOrder({
+    required String name,
+    required String local9,
+    int? regionId,
+    int? villageId,
+    String? address,
+    String? note,
+    String? couponCode,
+    int? pointsToSpend,
+    String paymentMethod = 'CASH',
+  }) =>
+      _cart.placeOrder(
+        name: name,
+        local9: local9,
+        regionId: regionId,
+        villageId: villageId,
+        address: address,
+        note: note,
+        couponCode: couponCode,
+        pointsToSpend: pointsToSpend,
+        paymentMethod: paymentMethod,
+      );
 
   // ── session ────────────────────────────────────────────────
   String lang = 'uz';
   ShopUser? user;
   bool get isLoggedIn => user != null;
-
-  // ── cart (client-side) ─────────────────────────────────────
-  final Map<int, int> cart; // catalogItemId -> qty
-  final Map<int, Product> productCache = {};
-  int get cartCount => cart.values.fold(0, (s, q) => s + q);
-
-  /// Local 9-digit phone of the last placed order (prefills status lookup).
-  /// Persisted so the prefill and guest pay-again survive an app restart.
-  String lastOrderPhone = '';
-
-  /// Locally-remembered placed orders (newest first), so guests can find and
-  /// track them again after a restart. Capped at [_maxRecentOrders].
-  List<LocalOrderRef> recentOrders = [];
-  static const _maxRecentOrders = 10;
-
-  /// Last chosen payment method (CASH | CARD) — the checkout default.
-  String payMethod = 'CASH';
 
   /// When the OTP-resend throttle expires. Held here (and persisted) rather
   /// than in the login screen's state, so leaving and re-opening login can't
@@ -165,95 +185,11 @@ class AppState extends ChangeNotifier {
     } catch (_) {}
   }
 
-  // ── toast / badge bounce ───────────────────────────────────
+  // ── toast ──────────────────────────────────────────────────
   String toastMsg = '';
   bool toastShow = false;
   int _toastToken = 0;
-  int bounceToken = 0;
 
-  // ── bootstrap (restore session on launch) ──────────────────
-  Future<void> bootstrap() async {
-    try {
-      user = await auth.me();
-      await refreshWishlist();
-      await refreshUnread();
-    } catch (_) {
-      user = null; // no/expired token
-    }
-    notifyListeners();
-  }
-
-  // ── persistence ────────────────────────────────────────────
-  static Map<int, int> _loadCart(SharedPreferences prefs) {
-    try {
-      final raw = prefs.getString(_cartKey);
-      if (raw == null) return {};
-      final obj = jsonDecode(raw) as Map<String, dynamic>;
-      final clean = <int, int>{};
-      obj.forEach((k, v) {
-        final id = int.tryParse(k);
-        final qty = (v as num).toInt();
-        if (id != null && qty > 0) clean[id] = qty;
-      });
-      return clean;
-    } catch (_) {
-      return {};
-    }
-  }
-
-  void _saveCart() =>
-      _prefs.setString(_cartKey, jsonEncode(cart.map((k, v) => MapEntry('$k', v))));
-
-  static List<LocalOrderRef> _loadRecentOrders(SharedPreferences prefs) {
-    try {
-      final raw = prefs.getString(_ordersKey);
-      if (raw == null) return [];
-      return (jsonDecode(raw) as List)
-          .map((e) => LocalOrderRef.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  void _saveRecentOrders() =>
-      _prefs.setString(_ordersKey, jsonEncode(recentOrders.map((e) => e.toJson()).toList()));
-
-  /// Flip a locally-remembered order to paid (after an online payment) so the
-  /// recent-orders list reflects it without a server round-trip.
-  void markLocalOrderPaid(String orderNumber) {
-    final i = recentOrders.indexWhere((o) => o.orderNumber == orderNumber);
-    if (i >= 0 && !recentOrders[i].paid) {
-      recentOrders[i] = recentOrders[i].copyWith(paid: true);
-      _saveRecentOrders();
-      notifyListeners();
-    }
-  }
-
-  // ── product cache ──────────────────────────────────────────
-  void cacheProduct(Product p) => productCache[p.id] = p;
-
-  /// Refresh every cart product from the server so the stock and prices shown
-  /// in the cart are current — not whatever was cached when the item was added,
-  /// which is how sold-out items used to slip through to checkout. A line is
-  /// dropped only when its product 404s; transient errors keep the cached copy.
-  Future<void> refreshCartProducts() async {
-    for (final id in cart.keys.toList()) {
-      try {
-        productCache[id] = await catalog.product(id);
-      } on ApiException catch (e) {
-        if (e.status == 404) productCache.remove(id);
-      } catch (_) {/* keep any cached copy */}
-    }
-    cart.removeWhere((id, _) => !productCache.containsKey(id));
-    _saveCart();
-    notifyListeners();
-  }
-
-  /// Public trigger for listeners (e.g. after a screen refreshes shared state).
-  void notify() => notifyListeners();
-
-  // ── toast ──────────────────────────────────────────────────
   void toast(String msg) {
     toastMsg = msg;
     toastShow = true;
@@ -267,53 +203,18 @@ class AppState extends ChangeNotifier {
     });
   }
 
-  // ── navigation ─────────────────────────────────────────────
-  void setTab(String t) {
-    motion = NavMotion.none;
-    tab = t;
-    notifyListeners();
-  }
+  /// Public trigger for listeners (e.g. after a screen refreshes shared state).
+  void notify() => notifyListeners();
 
-  void push(ScreenSpec s) {
-    motion = NavMotion.push;
-    stack.add(s);
-    notifyListeners();
-  }
-
-  void pop() {
-    motion = NavMotion.pop;
-    if (stack.length > 1) stack.removeLast();
-    notifyListeners();
-  }
-
-  void replace(ScreenSpec s) {
-    motion = NavMotion.push;
-    stacks[tab] = [ScreenSpec(stack.first.name), s];
-    notifyListeners();
-  }
-
-  void resetCartStack() {
-    motion = NavMotion.none;
-    stacks['cart'] = [const ScreenSpec('cart')];
-    notifyListeners();
-  }
-
-  // ── cart ───────────────────────────────────────────────────
-  void addToCart(Product product) {
-    cacheProduct(product);
-    cart[product.id] = (cart[product.id] ?? 0) + 1;
-    bounceToken++;
-    _saveCart();
-    notifyListeners();
-  }
-
-  void setQty(int id, int qty) {
-    if (qty <= 0) {
-      cart.remove(id);
-    } else {
-      cart[id] = qty;
+  // ── bootstrap (restore session on launch) ──────────────────
+  Future<void> bootstrap() async {
+    try {
+      user = await auth.me();
+      await refreshWishlist();
+      await refreshUnread();
+    } catch (_) {
+      user = null; // no/expired token
     }
-    _saveCart();
     notifyListeners();
   }
 
@@ -354,7 +255,7 @@ class AppState extends ChangeNotifier {
     wishlistItems = [];
     wishlistIds = {};
     unreadCount = 0;
-    motion = NavMotion.none;
+    _nav.resetMotion();
     notifyListeners();
   }
 
@@ -413,55 +314,5 @@ class AppState extends ChangeNotifier {
       }
     }();
     return true;
-  }
-
-  // ── orders ─────────────────────────────────────────────────
-  Future<Order> placeOrder({
-    required String name,
-    required String local9,
-    int? regionId,
-    int? villageId,
-    String? address,
-    String? note,
-    String? couponCode,
-    int? pointsToSpend,
-    String paymentMethod = 'CASH',
-  }) async {
-    final order = await orders.create(
-      customerName: name,
-      phoneE164: phoneToE164(local9),
-      regionId: regionId,
-      villageId: villageId,
-      address: address,
-      note: note,
-      couponCode: couponCode,
-      pointsToSpend: pointsToSpend,
-      paymentMethod: paymentMethod,
-      lines: Map<int, int>.from(cart),
-    );
-    lastOrderPhone = local9;
-    _prefs.setString(_lastPhoneKey, local9);
-    payMethod = paymentMethod; // remember as the next checkout's default
-    _prefs.setString(_payKey, paymentMethod);
-    // Remember the order locally so a guest can find it again after a restart.
-    recentOrders.insert(
-      0,
-      LocalOrderRef(
-        orderNumber: order.orderNumber,
-        phone: local9,
-        total: order.totalAmount,
-        paymentMethod: order.paymentMethod.isNotEmpty ? order.paymentMethod : paymentMethod,
-        paid: order.isPaid,
-        createdAt: order.createdAt.isNotEmpty ? order.createdAt : DateTime.now().toIso8601String(),
-      ),
-    );
-    if (recentOrders.length > _maxRecentOrders) {
-      recentOrders = recentOrders.sublist(0, _maxRecentOrders);
-    }
-    _saveRecentOrders();
-    cart.clear();
-    _saveCart();
-    notifyListeners();
-    return order;
   }
 }
