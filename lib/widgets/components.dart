@@ -165,7 +165,10 @@ class _BigButtonState extends State<BigButton> {
         ? (widget.disabled ? const Color.fromRGBO(60, 60, 67, 0.35) : Colors.white)
         : AppColors.accent;
 
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      child: GestureDetector(
       onTapDown: enabled ? (_) => setState(() => _down = true) : null,
       onTapUp: enabled ? (_) => setState(() => _down = false) : null,
       onTapCancel: enabled ? () => setState(() => _down = false) : null,
@@ -194,6 +197,7 @@ class _BigButtonState extends State<BigButton> {
                 ),
         ),
       ),
+      ),
     );
   }
 }
@@ -216,14 +220,17 @@ class ShopTextButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Padding(
-        padding: padding,
-        child: DefaultTextStyle(
-          style: ts(size: fontSize, weight: FontWeight.w500, color: color, letterSpacing: -0.2),
-          child: IconTheme(data: IconThemeData(color: color), child: child),
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Padding(
+          padding: padding,
+          child: DefaultTextStyle(
+            style: ts(size: fontSize, weight: FontWeight.w500, color: color, letterSpacing: -0.2),
+            child: IconTheme(data: IconThemeData(color: color), child: child),
+          ),
         ),
       ),
     );
@@ -752,7 +759,10 @@ class MenuRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Stack(
@@ -788,6 +798,7 @@ class MenuRow extends StatelessWidget {
             ),
         ],
       ),
+      ),
     );
   }
 }
@@ -822,10 +833,14 @@ class NavHeader extends StatelessWidget {
       padding: EdgeInsets.only(top: topInset(context), bottom: 8, left: 8, right: 8),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: onBack,
-            behavior: HitTestBehavior.opaque,
-            child: SizedBox(width: 44, height: 44, child: Center(child: Ic.chevronL(AppColors.accent))),
+          Semantics(
+            button: true,
+            label: tr2('Орқага', 'Назад'),
+            child: GestureDetector(
+              onTap: onBack,
+              behavior: HitTestBehavior.opaque,
+              child: SizedBox(width: 44, height: 44, child: Center(child: Ic.chevronL(AppColors.accent))),
+            ),
           ),
           Expanded(
             child: Text(

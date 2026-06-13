@@ -10,6 +10,7 @@ import 'package:hisobnoma_shop/data/models.dart';
 import 'package:hisobnoma_shop/data/strings.dart';
 import 'package:hisobnoma_shop/screens/account.dart';
 import 'package:hisobnoma_shop/screens/cart.dart';
+import 'package:hisobnoma_shop/widgets/components.dart';
 import 'package:hisobnoma_shop/screens/payment.dart';
 import 'package:hisobnoma_shop/state/app_state.dart';
 
@@ -181,6 +182,17 @@ void main() {
     test('disabled yields zero', () => expect(ld(balance: 100000, enabled: false).maxRedeemable(40000), 0));
     test('floored to a whole sum',
         () => expect(ld(balance: 1234.9, pct: 100).maxRedeemable(100000), 1234));
+  });
+
+  group('Accessibility (#22)', () {
+    testWidgets('primary buttons are exposed as buttons to screen readers',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+          _wrap(BigButton(onTap: () {}, child: const Text('Тасдиқлаш'))));
+      expect(tester.getSemantics(find.byType(BigButton)), containsSemantics(isButton: true));
+      handle.dispose();
+    });
   });
 
   group('Formatting (#18/#23)', () {

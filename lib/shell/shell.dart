@@ -282,7 +282,11 @@ class _TabButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = active ? AppColors.accent : const Color.fromRGBO(60, 60, 67, 0.55);
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      selected: active,
+      label: label,
+      child: GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
@@ -305,6 +309,7 @@ class _TabButton extends StatelessWidget {
                 style: ts(size: 10.5, weight: active ? FontWeight.w600 : FontWeight.w500, color: color)),
           ],
         ),
+      ),
       ),
     );
   }
