@@ -213,16 +213,18 @@ class AppState extends ChangeNotifier {
   // ── product cache ──────────────────────────────────────────
   void cacheProduct(Product p) => productCache[p.id] = p;
 
-  /// Fetch any cart products not yet cached (e.g. after a cold start).
-  Future<void> ensureCartProducts() async {
-    final missing = cart.keys.where((id) => !productCache.containsKey(id)).toList();
-    if (missing.isEmpty) return;
-    for (final id in missing) {
+  /// Refresh every cart product from the server so the stock and prices shown
+  /// in the cart are current — not whatever was cached when the item was added,
+  /// which is how sold-out items used to slip through to checkout. A line is
+  /// dropped only when its product 404s; transient errors keep the cached copy.
+  Future<void> refreshCartProducts() async {
+    for (final id in cart.keys.toList()) {
       try {
         productCache[id] = await catalog.product(id);
-      } catch (_) {/* dropped below if still missing */}
+      } on ApiException catch (e) {
+        if (e.status == 404) productCache.remove(id);
+      } catch (_) {/* keep any cached copy */}
     }
-    // Drop cart lines whose product no longer exists.
     cart.removeWhere((id, _) => !productCache.containsKey(id));
     _saveCart();
     notifyListeners();
@@ -390,6 +392,7 @@ class AppState extends ChangeNotifier {
     required String local9,
     int? regionId,
     int? villageId,
+    String? address,
     String? note,
     String paymentMethod = 'CASH',
   }) async {
@@ -398,6 +401,7 @@ class AppState extends ChangeNotifier {
       phoneE164: phoneToE164(local9),
       regionId: regionId,
       villageId: villageId,
+      address: address,
       note: note,
       paymentMethod: paymentMethod,
       lines: Map<int, int>.from(cart),

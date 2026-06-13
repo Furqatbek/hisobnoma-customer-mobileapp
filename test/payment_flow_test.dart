@@ -151,6 +151,49 @@ void main() {
     });
   });
 
+  group('Checkout integrity', () {
+    testWidgets('blocks submit without address / region and shows errors', (tester) async {
+      tester.view.physicalSize = const Size(390 * 3, 1600 * 3);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+
+      final app = await _app();
+      await tester.pumpWidget(_wrap(CheckoutScreen(app: app)));
+      await tester.pumpAndSettle(); // regions fetch fails (no backend) → empty
+
+      await tester.tap(find.text('Буюртмани юбориш'));
+      await tester.pumpAndSettle();
+      expect(find.text('Манзилни киритинг'), findsOneWidget);
+      expect(find.text('Туманни танланг'), findsOneWidget);
+      expect(app.screen.name, isNot('success'));
+    });
+
+    testWidgets('sold-out cart item blocks ordering', (tester) async {
+      SharedPreferences.setMockInitialValues({'hisobnoma-shop-cart-v1': '{"1":1}'});
+      final prefs = await SharedPreferences.getInstance();
+      final app = AppState(prefs, TokenStore(), ApiClient(TokenStore()));
+      app.setTab('cart');
+      app.cacheProduct(const Product(
+        id: 1,
+        name: 'Музлатилган гўшт',
+        shortDescription: '',
+        description: '',
+        basePrice: 50000,
+        categoryId: 1,
+        categoryName: '',
+        unitName: 'кг',
+        inStock: false,
+      ));
+
+      await tester.pumpWidget(_wrap(CartScreen(app: app)));
+      await tester.pumpAndSettle(); // background refresh fails, keeps cached OOS copy
+      expect(find.text('Тугаган маҳсулотни ўчиринг'), findsOneWidget);
+
+      await tester.tap(find.text('Буюртма бериш'));
+      expect(app.stack.length, 1); // disabled — did not push checkout
+    });
+  });
+
   group('Order card payment states', () {
     testWidgets('unpaid card order: pill + working pay button', (tester) async {
       var tapped = false;

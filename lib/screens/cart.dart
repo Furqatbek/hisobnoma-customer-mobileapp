@@ -92,10 +92,12 @@ class _CartScreenState extends State<CartScreen> {
   @override
   void initState() {
     super.initState();
-    final missing = app.cart.keys.any((id) => !app.productCache.containsKey(id));
-    if (missing) {
-      _loading = true;
-      app.ensureCartProducts().whenComplete(() {
+    // Always re-pull cart products so stock/price are current; only block with
+    // a spinner on a cold start where nothing is cached yet.
+    final hasAll = app.cart.keys.every((id) => app.productCache.containsKey(id));
+    _loading = !hasAll && app.cart.isNotEmpty;
+    if (app.cart.isNotEmpty) {
+      app.refreshCartProducts().whenComplete(() {
         if (mounted) setState(() => _loading = false);
       });
     }
@@ -158,6 +160,7 @@ class _CartScreenState extends State<CartScreen> {
     }
 
     final subtotal = ids.fold<double>(0, (s, id) => s + (app.productCache[id]?.price ?? 0) * app.cart[id]!);
+    final anyOOS = ids.any((id) => app.productCache[id]?.inStock == false);
 
     return Container(
       color: AppColors.bg,
@@ -204,9 +207,16 @@ class _CartScreenState extends State<CartScreen> {
                               style: ts(size: 20, weight: FontWeight.w700, color: AppColors.text, letterSpacing: -0.3)),
                         ],
                       ),
+                      if (anyOOS)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(tr('Тугаган маҳсулотни ўчиринг'),
+                              textAlign: TextAlign.center, style: ts(size: 13, color: AppColors.red)),
+                        ),
                       const SizedBox(height: 12),
                       BigButton(
-                        onTap: () => app.push(const ScreenSpec('checkout')),
+                        disabled: anyOOS,
+                        onTap: anyOOS ? null : () => app.push(const ScreenSpec('checkout')),
                         child: Text(tr('Буюртма бериш')),
                       ),
                     ],
@@ -247,6 +257,10 @@ class _CartScreenState extends State<CartScreen> {
                   const SizedBox(height: 3),
                   Text('${formatSum(p.price)}${p.unitName.isNotEmpty ? ' / ${p.unitName}' : ''}',
                       style: ts(size: 13.5, color: AppColors.sec)),
+                  if (!p.inStock) ...[
+                    const SizedBox(height: 6),
+                    const StockBadge(inStock: false, small: true),
+                  ],
                   const SizedBox(height: 7),
                   ShopStepper(compact: true, qty: qty, onChange: (n) => app.setQty(id, n)),
                 ],
@@ -276,6 +290,7 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   late final TextEditingController _nameCtrl;
+  late final TextEditingController _addressCtrl;
   late final TextEditingController _noteCtrl;
   String _phone = '';
   int? _regionId;
@@ -283,6 +298,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _payMethod = 'CASH';
   String? _nameErr;
   bool _phoneErr = false;
+  bool _regionErr = false;
+  bool _villageErr = false;
+  String? _addressErr;
   bool _submitting = false;
   String? _submitError;
 
@@ -296,6 +314,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void initState() {
     super.initState();
     _nameCtrl = TextEditingController(text: app.user?.name ?? '');
+    _addressCtrl = TextEditingController();
     _noteCtrl = TextEditingController();
     _phone = app.user?.phone ?? '';
     _payMethod = app.payMethod;
@@ -324,6 +343,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _addressCtrl.dispose();
     _noteCtrl.dispose();
     super.dispose();
   }
@@ -332,9 +352,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     setState(() {
       _nameErr = _nameCtrl.text.trim().isEmpty ? tr('Исмингизни киритинг') : null;
       _phoneErr = _phone.replaceAll(RegExp(r'\D'), '').length != 9;
+      _regionErr = _regionId == null;
+      // Village is required only when the chosen region actually has villages.
+      _villageErr = _villages.isNotEmpty && _villageId == null;
+      _addressErr = _addressCtrl.text.trim().isEmpty ? tr('Манзилни киритинг') : null;
       _submitError = null;
     });
-    if (_nameErr != null || _phoneErr) return;
+    if (_nameErr != null || _phoneErr || _regionErr || _villageErr || _addressErr != null) return;
     setState(() => _submitting = true);
     try {
       final order = await app.placeOrder(
@@ -342,6 +366,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         local9: _phone.replaceAll(RegExp(r'\D'), ''),
         regionId: _regionId,
         villageId: _villageId,
+        address: _addressCtrl.text.trim(),
         note: _noteCtrl.text.trim(),
         paymentMethod: _payMethod,
       );
@@ -395,24 +420,50 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 if (_regionsLoading)
                   const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Spinner())
                 else
-                  _dropdown<int>(
-                    value: _regionId,
-                    hint: tr('Туман'),
-                    items: [for (final r in _regions) DropdownMenuItem(value: r.id, child: Text(r.name))],
-                    onChanged: (v) {
-                      setState(() => _regionId = v);
-                      if (v != null) _loadVillages(v);
-                    },
+                  Field(
+                    error: _regionErr ? tr('Туманни танланг') : null,
+                    child: _dropdown<int>(
+                      value: _regionId,
+                      hint: tr('Туман'),
+                      error: _regionErr,
+                      items: [for (final r in _regions) DropdownMenuItem(value: r.id, child: Text(r.name))],
+                      onChanged: (v) {
+                        setState(() {
+                          _regionId = v;
+                          _regionErr = false;
+                        });
+                        if (v != null) _loadVillages(v);
+                      },
+                    ),
                   ),
                 if (_regionId != null && _villages.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  _dropdown<int>(
-                    value: _villageId,
-                    hint: tr('Қишлоқ / маҳалла'),
-                    items: [for (final v in _villages) DropdownMenuItem(value: v.id, child: Text(v.name))],
-                    onChanged: (v) => setState(() => _villageId = v),
+                  Field(
+                    error: _villageErr ? tr('Қишлоқни танланг') : null,
+                    child: _dropdown<int>(
+                      value: _villageId,
+                      hint: tr('Қишлоқ / маҳалла'),
+                      error: _villageErr,
+                      items: [for (final v in _villages) DropdownMenuItem(value: v.id, child: Text(v.name))],
+                      onChanged: (v) => setState(() {
+                        _villageId = v;
+                        _villageErr = false;
+                      }),
+                    ),
                   ),
                 ],
+                const SizedBox(height: 12),
+                Field(
+                  error: _addressErr,
+                  child: ShopTextField(
+                    controller: _addressCtrl,
+                    hint: tr('Манзил (кўча, уй, мўлжал)'),
+                    error: _addressErr != null,
+                    onChanged: (_) {
+                      if (_addressErr != null) setState(() => _addressErr = null);
+                    },
+                  ),
+                ),
                 const SizedBox(height: 24),
                 SectionHeader(tr('Тўлов усули')),
                 const SizedBox(height: 12),
@@ -498,11 +549,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     required String hint,
     required List<DropdownMenuItem<T>> items,
     required ValueChanged<T?> onChanged,
+    bool error = false,
   }) {
     return Container(
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(color: AppColors.fill, borderRadius: BorderRadius.circular(AppRadii.input)),
+      decoration: BoxDecoration(
+        color: AppColors.fill,
+        borderRadius: BorderRadius.circular(AppRadii.input),
+        border: Border.all(color: error ? AppColors.red : Colors.transparent),
+      ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<T>(
           value: value,
