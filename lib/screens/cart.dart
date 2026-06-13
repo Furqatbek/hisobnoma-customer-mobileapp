@@ -247,7 +247,7 @@ class _CartScreenState extends State<CartScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ProductImage(imageUrl: p.imageUrl, label: null, radius: 10, width: 56, height: 56),
+            ProductImage(imageUrl: p.imageUrl, label: null, semanticLabel: p.name, radius: 10, width: 56, height: 56),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -898,7 +898,10 @@ class OrderSuccessScreen extends StatelessWidget {
                     textAlign: TextAlign.center,
                     style: ts(size: 22, weight: FontWeight.w700, color: AppColors.text, letterSpacing: -0.3)),
                 const SizedBox(height: 18),
-                GestureDetector(
+                Semantics(
+                  button: true,
+                  label: '${tr2('Буюртма рақами', 'Номер заказа')} $orderNumber, ${tr2('нусха олиш', 'скопировать')}',
+                  child: GestureDetector(
                   onTap: () {
                     Clipboard.setData(ClipboardData(text: orderNumber));
                     app.toast(tr('Нусха олинди'));
@@ -916,6 +919,7 @@ class OrderSuccessScreen extends StatelessWidget {
                       ],
                     ),
                   ),
+                ),
                 ),
                 const SizedBox(height: 14),
                 Text(formatSum(total), style: ts(size: 17, weight: FontWeight.w600, color: AppColors.text)),

@@ -105,7 +105,7 @@ class ProductCard extends StatelessWidget {
         children: [
           Stack(
             children: [
-              ProductImage(imageUrl: product.imageUrl, label: product.name, aspectRatio: 1),
+              ProductImage(imageUrl: product.imageUrl, label: product.name, semanticLabel: product.name, aspectRatio: 1),
               if (!product.inStock)
                 Positioned(
                   top: 8,
@@ -123,20 +123,25 @@ class ProductCard extends StatelessWidget {
               Positioned(
                 top: 8,
                 right: 8,
-                child: GestureDetector(
-                  onTap: onToggleWish,
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: const Color.fromRGBO(255, 255, 255, 0.85),
-                      borderRadius: BorderRadius.circular(100),
-                      boxShadow: const [BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.08), blurRadius: 4, offset: Offset(0, 1))],
-                    ),
-                    child: Center(
-                      child: wished
-                          ? Ic.heartFill(AppColors.red, 17)
-                          : Ic.heart(const Color.fromRGBO(60, 60, 67, 0.55), 17),
+                child: Semantics(
+                  button: true,
+                  toggled: wished,
+                  label: tr2('Севимлилар', 'Избранное'),
+                  child: GestureDetector(
+                    onTap: onToggleWish,
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: const Color.fromRGBO(255, 255, 255, 0.85),
+                        borderRadius: BorderRadius.circular(100),
+                        boxShadow: const [BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.08), blurRadius: 4, offset: Offset(0, 1))],
+                      ),
+                      child: Center(
+                        child: wished
+                            ? Ic.heartFill(AppColors.red, 17)
+                            : Ic.heart(const Color.fromRGBO(60, 60, 67, 0.55), 17),
+                      ),
                     ),
                   ),
                 ),
@@ -302,7 +307,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   padding: EdgeInsets.only(top: top + 12, left: 16, right: 16),
                   child: LargeTitle(
                     'Каталог',
-                    trailing: GestureDetector(
+                    trailing: Semantics(
+                      button: true,
+                      label: tr('Билдиришномалар'),
+                      child: GestureDetector(
                       onTap: () => app.push(const ScreenSpec('notifications')),
                       child: Container(
                         width: 44,
@@ -334,6 +342,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                           ],
                         ),
                       ),
+                    ),
                     ),
                   ),
                 ),
@@ -580,6 +589,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       itemBuilder: (context, i) => ProductImage(
                         imageUrl: images.isEmpty ? null : images[i],
                         label: product.name,
+                        semanticLabel: product.name,
                         radius: 0,
                         fontSize: 13,
                         width: double.infinity,
@@ -610,18 +620,27 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                     Positioned(
                       top: top,
                       left: 12,
-                      child: _circleBtn(child: Ic.chevronL(AppColors.text, 18), onTap: app.pop),
+                      child: Semantics(
+                        button: true,
+                        label: tr2('Орқага', 'Назад'),
+                        child: _circleBtn(child: Ic.chevronL(AppColors.text, 18), onTap: app.pop),
+                      ),
                     ),
                     Positioned(
                       top: top,
                       right: 12,
-                      child: _circleBtn(
-                        child: app.isWished(product.id)
-                            ? Ic.heartFill(AppColors.red, 20)
-                            : Ic.heart(const Color.fromRGBO(60, 60, 67, 0.65), 20),
-                        onTap: () {
-                          if (!app.toggleWish(product.id)) app.push(const ScreenSpec('login'));
-                        },
+                      child: Semantics(
+                        button: true,
+                        toggled: app.isWished(product.id),
+                        label: tr2('Севимлилар', 'Избранное'),
+                        child: _circleBtn(
+                          child: app.isWished(product.id)
+                              ? Ic.heartFill(AppColors.red, 20)
+                              : Ic.heart(const Color.fromRGBO(60, 60, 67, 0.65), 20),
+                          onTap: () {
+                            if (!app.toggleWish(product.id)) app.push(const ScreenSpec('login'));
+                          },
+                        ),
                       ),
                     ),
                   ],

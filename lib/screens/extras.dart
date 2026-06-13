@@ -774,12 +774,21 @@ class _CouponsScreenState extends State<CouponsScreen> {
                                   fontFamily: kMonoFamily, fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text, letterSpacing: 0.5)),
                         ),
                         const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: () {
-                            Clipboard.setData(ClipboardData(text: c.code));
-                            app.toast('${tr('Код нусха олинди')}: ${c.code}');
-                          },
-                          child: Padding(padding: const EdgeInsets.all(4), child: Ic.copy()),
+                        Semantics(
+                          button: true,
+                          label: tr2('Кодни нусха олиш', 'Скопировать код'),
+                          child: GestureDetector(
+                            onTap: () {
+                              Clipboard.setData(ClipboardData(text: c.code));
+                              app.toast('${tr('Код нусха олинди')}: ${c.code}');
+                            },
+                            // Bigger transparent hit area than the 16px glyph.
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              color: Colors.transparent,
+                              child: Ic.copy(),
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -892,7 +901,10 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                     else if (_error != null)
                       ErrorView(message: _error, onRetry: _load)
                     else
-                      GestureDetector(
+                      Semantics(
+                        button: true,
+                        label: tr2('Кодни нусха олиш', 'Скопировать код'),
+                        child: GestureDetector(
                         onTap: () {
                           Clipboard.setData(ClipboardData(text: _stats?.code ?? ''));
                           app.toast(tr('Код нусха олинди'));
@@ -912,6 +924,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                             ],
                           ),
                         ),
+                      ),
                       ),
                     const SizedBox(height: 18),
                     BigButton(onTap: () => app.toast(tr('Telegram орқали улашиш')), child: Text(tr('Telegram орқали улашиш'))),

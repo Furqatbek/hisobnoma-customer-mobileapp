@@ -190,7 +190,18 @@ void main() {
       final handle = tester.ensureSemantics();
       await tester.pumpWidget(
           _wrap(BigButton(onTap: () {}, child: const Text('Тасдиқлаш'))));
-      expect(tester.getSemantics(find.byType(BigButton)), containsSemantics(isButton: true));
+      final data = tester.getSemantics(find.byType(BigButton)).getSemanticsData();
+      expect(data.flagsCollection.isButton, isTrue);
+      handle.dispose();
+    });
+
+    testWidgets('selectable option exposes its selected state', (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(_wrap(
+          OptionCard(icon: const SizedBox(), title: 'Нақд пул', selected: true, onTap: () {})));
+      final data = tester.getSemantics(find.byType(OptionCard)).getSemanticsData();
+      expect(data.flagsCollection.isButton, isTrue);
+      expect(data.flagsCollection.isSelected.name, 'isTrue');
       handle.dispose();
     });
   });

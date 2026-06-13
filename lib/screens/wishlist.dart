@@ -173,7 +173,7 @@ class _WishlistScreenState extends State<WishlistScreen> {
           children: [
             GestureDetector(
               onTap: () => app.push(ScreenSpec('product', productId: id)),
-              child: ProductImage(imageUrl: w.imageUrl, label: null, radius: 10, width: 56, height: 56),
+              child: ProductImage(imageUrl: w.imageUrl, label: null, semanticLabel: w.name, radius: 10, width: 56, height: 56),
             ),
             const SizedBox(width: 12),
             Expanded(

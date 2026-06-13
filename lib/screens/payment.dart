@@ -208,7 +208,10 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                               color: AppColors.text,
                               letterSpacing: -0.5)),
                       const SizedBox(height: 6),
-                      GestureDetector(
+                      Semantics(
+                        button: true,
+                        label: '${tr2('Буюртма рақами', 'Номер заказа')} ${widget.orderNumber}, ${tr2('нусха олиш', 'скопировать')}',
+                        child: GestureDetector(
                         onTap: () {
                           Clipboard.setData(ClipboardData(text: widget.orderNumber));
                           app.toast(tr('Нусха олинди'));
@@ -226,6 +229,7 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                             Ic.copy(),
                           ],
                         ),
+                      ),
                       ),
                     ],
                   ),

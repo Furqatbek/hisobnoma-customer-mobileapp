@@ -51,6 +51,10 @@ class ProductImage extends StatelessWidget {
 
   /// Label drawn on the placeholder (null = no label).
   final String? label;
+
+  /// Screen-reader label for the image (e.g. the product name). When null the
+  /// image is treated as decorative and excluded from the semantics tree.
+  final String? semanticLabel;
   final double radius;
   final double fontSize;
   final double? width;
@@ -61,6 +65,7 @@ class ProductImage extends StatelessWidget {
     super.key,
     this.imageUrl,
     this.label,
+    this.semanticLabel,
     this.radius = 12,
     this.fontSize = 11,
     this.width,
@@ -118,7 +123,9 @@ class ProductImage extends StatelessWidget {
     Widget child = ClipRRect(borderRadius: BorderRadius.circular(radius), child: inner);
     if (aspectRatio != null) child = AspectRatio(aspectRatio: aspectRatio!, child: child);
     if (width != null || height != null) child = SizedBox(width: width, height: height, child: child);
-    return child;
+    return (semanticLabel != null && semanticLabel!.isNotEmpty)
+        ? Semantics(image: true, label: semanticLabel, child: child)
+        : ExcludeSemantics(child: child);
   }
 }
 
@@ -304,7 +311,11 @@ class ShopChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -324,6 +335,7 @@ class ShopChip extends StatelessWidget {
                 weight: FontWeight.w500,
                 color: selected ? Colors.white : AppColors.text,
                 letterSpacing: -0.15)),
+      ),
       ),
     );
   }
@@ -361,7 +373,11 @@ class OptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sel = selected == true;
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: subtitle == null ? title : '$title, $subtitle',
+      child: GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
@@ -419,6 +435,7 @@ class OptionCard extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 }
@@ -433,15 +450,21 @@ class ShopStepper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final h = compact ? 30.0 : 38.0;
-    Widget btn(String label, int delta) => GestureDetector(
-          onTap: () => onChange(qty + delta),
-          behavior: HitTestBehavior.opaque,
-          child: SizedBox(
-            width: h + 4,
-            height: h,
-            child: Center(
-              child: Text(label,
-                  style: ts(size: compact ? 17 : 20, weight: FontWeight.w500, color: AppColors.text)),
+    Widget btn(String label, int delta, String semLabel) => Semantics(
+          button: true,
+          label: semLabel,
+          excludeSemantics: true, // the bare "+/−" glyph would read poorly
+          onTap: () => onChange(qty + delta), // exclude drops the child action
+          child: GestureDetector(
+            onTap: () => onChange(qty + delta),
+            behavior: HitTestBehavior.opaque,
+            child: SizedBox(
+              width: h + 4,
+              height: h,
+              child: Center(
+                child: Text(label,
+                    style: ts(size: compact ? 17 : 20, weight: FontWeight.w500, color: AppColors.text)),
+              ),
             ),
           ),
         );
@@ -451,7 +474,7 @@ class ShopStepper extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          btn('−', -1),
+          btn('−', -1, tr2('Камайтириш', 'Уменьшить')),
           ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 22),
             child: Text(
@@ -461,7 +484,7 @@ class ShopStepper extends StatelessWidget {
                   .copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
             ),
           ),
-          btn('+', 1),
+          btn('+', 1, tr2('Кўпайтириш', 'Увеличить')),
         ],
       ),
     );
@@ -811,9 +834,12 @@ class SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
-      child: Text(
-        text.toUpperCase(),
-        style: ts(size: 13, weight: FontWeight.w600, color: AppColors.sec, letterSpacing: 0.4),
+      child: Semantics(
+        header: true,
+        child: Text(
+          text.toUpperCase(),
+          style: ts(size: 13, weight: FontWeight.w600, color: AppColors.sec, letterSpacing: 0.4),
+        ),
       ),
     );
   }
@@ -843,12 +869,15 @@ class NavHeader extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(
-              title,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: ts(size: 17, weight: FontWeight.w600, color: AppColors.text, letterSpacing: -0.3),
+            child: Semantics(
+              header: true,
+              child: Text(
+                title,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: ts(size: 17, weight: FontWeight.w600, color: AppColors.text, letterSpacing: -0.3),
+              ),
             ),
           ),
           SizedBox(width: 44, child: Center(child: right ?? const SizedBox.shrink())),
@@ -866,9 +895,12 @@ class LargeTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final title = Text(
-      text,
-      style: ts(size: 34, weight: FontWeight.w700, color: AppColors.text, letterSpacing: 0.2, height: 41 / 34),
+    final title = Semantics(
+      header: true,
+      child: Text(
+        text,
+        style: ts(size: 34, weight: FontWeight.w700, color: AppColors.text, letterSpacing: 0.2, height: 41 / 34),
+      ),
     );
     if (trailing == null) return title;
     return Row(
