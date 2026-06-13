@@ -394,6 +394,8 @@ class AppState extends ChangeNotifier {
     int? villageId,
     String? address,
     String? note,
+    String? couponCode,
+    int? pointsToSpend,
     String paymentMethod = 'CASH',
   }) async {
     final order = await orders.create(
@@ -403,6 +405,8 @@ class AppState extends ChangeNotifier {
       villageId: villageId,
       address: address,
       note: note,
+      couponCode: couponCode,
+      pointsToSpend: pointsToSpend,
       paymentMethod: paymentMethod,
       lines: Map<int, int>.from(cart),
     );

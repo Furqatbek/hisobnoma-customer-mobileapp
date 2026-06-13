@@ -308,6 +308,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   List<Village> _villages = [];
   bool _regionsLoading = true;
 
+  // Server-authoritative cart pricing (applies promotions the client can't
+  // see). Null until loaded / on failure — then we fall back to the client sum.
+  CartPricing? _pricing;
+
+  // Coupon.
+  late final TextEditingController _couponCtrl;
+  String? _appliedCoupon;
+  double _couponDiscount = 0;
+  bool _couponBusy = false;
+  String? _couponErr;
+
+  // Cashback / loyalty points.
+  LoyaltyData? _loyalty;
+  bool _usePoints = false;
+
   AppState get app => widget.app;
 
   @override
@@ -316,10 +331,80 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _nameCtrl = TextEditingController(text: app.user?.name ?? '');
     _addressCtrl = TextEditingController();
     _noteCtrl = TextEditingController();
+    _couponCtrl = TextEditingController();
     _phone = app.user?.phone ?? '';
     _payMethod = app.payMethod;
     _loadRegions();
+    _loadPricing();
+    if (app.isLoggedIn) _loadLoyalty();
   }
+
+  Future<void> _loadPricing() async {
+    try {
+      final p = await app.cartApi.price(Map<int, int>.from(app.cart));
+      if (mounted) setState(() => _pricing = p);
+    } catch (_) {/* fall back to the client-side sum */}
+  }
+
+  Future<void> _loadLoyalty() async {
+    try {
+      final l = await app.loyalty.loyalty();
+      if (mounted) setState(() => _loyalty = l);
+    } catch (_) {/* points redemption simply won't be offered */}
+  }
+
+  Future<void> _applyCoupon() async {
+    final code = _couponCtrl.text.trim();
+    if (code.isEmpty) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _couponBusy = true;
+      _couponErr = null;
+    });
+    try {
+      final discount = await app.cartApi.validateCoupon(code, Map<int, int>.from(app.cart));
+      if (!mounted) return;
+      setState(() {
+        _couponBusy = false;
+        if (discount == null) {
+          _couponErr = tr('Купон яроқсиз');
+          _appliedCoupon = null;
+          _couponDiscount = 0;
+        } else {
+          _appliedCoupon = code;
+          _couponDiscount = discount;
+          app.toast(tr('Купон қўлланди'));
+        }
+      });
+    } on ApiException catch (e) {
+      if (mounted) {
+        setState(() {
+          _couponBusy = false;
+          _couponErr = e.message;
+        });
+      }
+    }
+  }
+
+  void _removeCoupon() {
+    setState(() {
+      _appliedCoupon = null;
+      _couponDiscount = 0;
+      _couponErr = null;
+      _couponCtrl.clear();
+    });
+  }
+
+  /// Goods total after server promotions + the validated coupon (no delivery),
+  /// the base the cashback cap is computed against.
+  double _goodsAfterDiscounts(double clientSum) {
+    final goods = _pricing?.total ?? clientSum;
+    return (goods - _couponDiscount).clamp(0, double.infinity);
+  }
+
+  /// Max cashback redeemable on this order, honouring balance + percent cap.
+  double _maxPoints(double clientSum) =>
+      _loyalty?.maxRedeemable(_goodsAfterDiscounts(clientSum)) ?? 0;
 
   Future<void> _loadRegions() async {
     setState(() => _regionsLoading = true);
@@ -345,6 +430,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _nameCtrl.dispose();
     _addressCtrl.dispose();
     _noteCtrl.dispose();
+    _couponCtrl.dispose();
     super.dispose();
   }
 
@@ -361,6 +447,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (_nameErr != null || _phoneErr || _regionErr || _villageErr || _addressErr != null) return;
     setState(() => _submitting = true);
     try {
+      final clientSum =
+          app.cart.keys.fold<double>(0, (s, id) => s + (app.productCache[id]?.price ?? 0) * app.cart[id]!);
+      final points = _usePoints ? _maxPoints(clientSum).round() : 0;
       final order = await app.placeOrder(
         name: _nameCtrl.text.trim(),
         local9: _phone.replaceAll(RegExp(r'\D'), ''),
@@ -368,6 +457,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         villageId: _villageId,
         address: _addressCtrl.text.trim(),
         note: _noteCtrl.text.trim(),
+        couponCode: _appliedCoupon,
+        pointsToSpend: points > 0 ? points : null,
         paymentMethod: _payMethod,
       );
       if (_payMethod == 'CARD' && ApiConfig.onlinePaymentEnabled) {
@@ -393,9 +484,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final ids = app.cart.keys.toList();
-    final subtotal = ids.fold<double>(0, (s, id) => s + (app.productCache[id]?.price ?? 0) * app.cart[id]!);
+    final clientSum = ids.fold<double>(0, (s, id) => s + (app.productCache[id]?.price ?? 0) * app.cart[id]!);
     final region = _regions.where((r) => r.id == _regionId).cast<Region?>().firstWhere((_) => true, orElse: () => null);
     final fee = region?.deliveryFee ?? 0;
+
+    // Prefer the server's pricing (it knows the promotions); fall back to the
+    // client sum when /web/cart/price is unavailable.
+    final subtotal = _pricing?.subtotal ?? clientSum;
+    final promo = _pricing?.discountTotal ?? 0;
+    final pointsValue = _maxPoints(clientSum); // max redeemable (offer)
+    final appliedPoints = _usePoints ? pointsValue : 0.0; // actually applied
+    final goodsAfter = _goodsAfterDiscounts(clientSum);
+    final total = (goodsAfter - appliedPoints).clamp(0, double.infinity) + fee;
 
     return Container(
       color: AppColors.bg,
@@ -482,6 +582,22 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                 ],
                 const SizedBox(height: 24),
+                SectionHeader(tr('Купон')),
+                const SizedBox(height: 12),
+                _couponSection(),
+                if (pointsValue > 0) ...[
+                  const SizedBox(height: 24),
+                  SectionHeader(tr('Кешбек')),
+                  const SizedBox(height: 12),
+                  OptionCard(
+                    icon: Ic.qr(AppColors.accent, 20),
+                    title: tr('Кешбекни ишлатиш'),
+                    subtitle: '−${formatSum(pointsValue)} · ${tr2('баланс', 'баланс')} ${formatSum(_loyalty!.balance)}',
+                    selected: _usePoints,
+                    onTap: () => setState(() => _usePoints = !_usePoints),
+                  ),
+                ],
+                const SizedBox(height: 24),
                 SectionHeader(tr('Қўшимча')),
                 const SizedBox(height: 12),
                 ShopTextField(controller: _noteCtrl, hint: tr('Изоҳ (ихтиёрий)'), maxLines: 3, height: null),
@@ -495,6 +611,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   child: Column(
                     children: [
                       _summaryRow(tr2('${ids.length} та маҳсулот', 'Товаров: ${ids.length}'), formatSum(subtotal)),
+                      if (promo > 0) ...[
+                        const SizedBox(height: 9),
+                        _summaryRow(tr('Чегирма'), '−${formatSum(promo)}', valueColor: AppColors.green),
+                      ],
+                      if (_appliedCoupon != null && _couponDiscount > 0) ...[
+                        const SizedBox(height: 9),
+                        _summaryRow('${tr('Купон')} $_appliedCoupon', '−${formatSum(_couponDiscount)}',
+                            valueColor: AppColors.green),
+                      ],
+                      if (appliedPoints > 0) ...[
+                        const SizedBox(height: 9),
+                        _summaryRow(tr('Кешбек ишлатилди'), '−${formatSum(appliedPoints)}',
+                            valueColor: AppColors.green),
+                      ],
                       if (fee > 0) ...[
                         const SizedBox(height: 9),
                         _summaryRow(tr('Етказиб бериш'), formatSum(fee)),
@@ -511,7 +641,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(tr('Жами тўлов'), style: ts(size: 16, weight: FontWeight.w600, color: AppColors.text)),
-                          Text(formatSum(subtotal + fee),
+                          Text(formatSum(total),
                               style: ts(size: 20, weight: FontWeight.w700, color: AppColors.text, letterSpacing: -0.3)),
                         ],
                       ),
@@ -534,12 +664,82 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _summaryRow(String left, String right) {
+  Widget _summaryRow(String left, String right, {Color valueColor = AppColors.text}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(left, style: ts(size: 15, color: AppColors.sec)),
-        Text(right, style: ts(size: 15, color: AppColors.text)),
+        Flexible(child: Text(left, style: ts(size: 15, color: AppColors.sec))),
+        const SizedBox(width: 12),
+        Text(right, style: ts(size: 15, color: valueColor)),
+      ],
+    );
+  }
+
+  Widget _couponSection() {
+    if (_appliedCoupon != null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.accentDim,
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          border: Border.all(color: AppColors.accent, width: 1.4),
+        ),
+        child: Row(
+          children: [
+            Ic.ticket(AppColors.accent, 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(_appliedCoupon!,
+                  style: TextStyle(
+                      fontFamily: kMonoFamily, fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.text, letterSpacing: 0.5)),
+            ),
+            if (_couponDiscount > 0)
+              Text('−${formatSum(_couponDiscount)}',
+                  style: ts(size: 14.5, weight: FontWeight.w600, color: AppColors.green)),
+            GestureDetector(
+              onTap: _removeCoupon,
+              behavior: HitTestBehavior.opaque,
+              child: const Padding(
+                padding: EdgeInsets.only(left: 12),
+                child: Icon(Icons.close_rounded, size: 20, color: AppColors.sec),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: ShopTextField(
+                controller: _couponCtrl,
+                hint: tr('Купон коди'),
+                error: _couponErr != null,
+                onChanged: (_) {
+                  if (_couponErr != null) setState(() => _couponErr = null);
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            BigButton(
+              ghost: true,
+              width: null,
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 22),
+              loading: _couponBusy,
+              onTap: _applyCoupon,
+              child: Text(tr('Қўллаш')),
+            ),
+          ],
+        ),
+        if (_couponErr != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 2),
+            child: Text(_couponErr!, style: ts(size: 13, color: AppColors.red)),
+          ),
       ],
     );
   }

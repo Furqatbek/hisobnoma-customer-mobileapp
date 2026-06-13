@@ -28,26 +28,36 @@ The design medium is **HTML/CSS/JS** — these are prototypes, not production co
 
 # Implementation notes (Flutter app in `lib/`)
 
-## Payment flow (cash / card)
+## Payment & checkout flow (cash / card)
 
-- **Checkout** (`lib/screens/cart.dart`) — a «Тўлов усули» section offers CASH or CARD; the
-  choice is sent as `paymentMethod` on `POST /web/orders` and the last used method is the
-  next checkout's default (SharedPreferences).
-- **Payment screen** (`lib/screens/payment.dart`) — card orders continue here: provider list
-  (Payme / Click / Uzum Bank), opens the provider's checkout URL externally, then polls the
-  status — every 5 s for ~3 min, on app resume, and via a manual button. «Кейинроқ тўлайман»
-  always falls through (the courier can take the payment), so a missing backend never blocks
-  ordering.
+- **Checkout** (`lib/screens/cart.dart`) — collects name, phone, region/village **and a
+  required address**; offers a «Тўлов усули» (CASH / CARD); prices the cart via the server
+  (`/web/cart/price`) so shown promotions are real; supports a **coupon** field
+  (`/web/cart/validate-coupon`) and **cashback** redemption (`/web/me/loyalty`). The order is
+  sent with `paymentMethod`, `address`, `couponCode` and `pointsToSpend`. Out-of-stock cart
+  items are re-checked on open and block ordering.
+- **Online payment** is gated by `ApiConfig.onlinePaymentEnabled`
+  (`--dart-define=ONLINE_PAYMENT=true`). While off, CARD = pay-the-courier-by-card and the app
+  skips straight to success. While on, card orders go to **the payment screen**
+  (`lib/screens/payment.dart`): provider list (Payme / Click / Uzum Bank), opens the checkout
+  URL externally, then polls status (every 5 s for ~3 min, on app resume, manual button).
+  «Кейинроқ тўлайман» always falls through so a missing backend never blocks ordering.
+- **Order recovery** — every placed order is remembered locally (`LocalOrderRef`), so a guest
+  can find/track/pay it from the status screen's «Сўнгги буюртмалар» list after a restart.
 - **Order cards** (`lib/screens/account.dart`) — payment pill (Тўланган / Тўланмаган /
   Қайтарилган), full receipt rows (delivery, discount, coupon, spent cashback) and a «Тўлаш»
-  button on unpaid card orders that reopens the payment screen (works for guests via the
-  status-lookup phone).
+  button on unpaid card orders (when online payment is enabled).
+- **Wallet QR** (`lib/screens/extras.dart`) shows a real scannable code only when the API
+  exposes a customer code + tenant slug; otherwise an honest "tayyorlanmoqda" placeholder.
 
 ### Backend contract consumed (all optional — UI degrades gracefully when absent)
 
 | API | Purpose |
 | --- | --- |
-| `POST /web/orders` body field `paymentMethod: CASH \| CARD` | persist the chosen method; echo it on the order DTO |
+| `POST /web/orders` fields `paymentMethod`, `address`, `couponCode`, `pointsToSpend` | persist + echo on the order DTO |
+| `POST /web/cart/price` | authoritative cart subtotal/discount/total shown at checkout |
+| `POST /web/cart/validate-coupon` | validate a coupon and return its discount |
+| `GET /web/me/loyalty` | cashback balance, `minRedeem`, `maxRedeemPercent` for redemption |
 | `POST /web/orders/{n}/payment` body `{phone, provider}` | create a payment; returns `{paymentUrl, status, provider, amount}` |
 | `GET /web/orders/{n}/payment?phone=…` | payment status: `PENDING \| PAID \| FAILED \| CANCELLED \| REFUNDED` |
 | Order DTO field `paymentStatus` | drives the status pills and the pay-again button |

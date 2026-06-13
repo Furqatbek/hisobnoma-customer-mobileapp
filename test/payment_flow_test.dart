@@ -151,6 +151,19 @@ void main() {
     });
   });
 
+  group('Cashback redemption math', () {
+    LoyaltyData ld({required double balance, double minRedeem = 0, int pct = 50, bool enabled = true}) =>
+        LoyaltyData(balance: balance, enabled: enabled, minRedeem: minRedeem, maxRedeemPercent: pct, entries: const []);
+
+    test('capped by percent of goods', () => expect(ld(balance: 100000).maxRedeemable(40000), 20000));
+    test('capped by balance', () => expect(ld(balance: 5000).maxRedeemable(40000), 5000));
+    test('below minRedeem yields zero',
+        () => expect(ld(balance: 3000, minRedeem: 5000, pct: 100).maxRedeemable(40000), 0));
+    test('disabled yields zero', () => expect(ld(balance: 100000, enabled: false).maxRedeemable(40000), 0));
+    test('floored to a whole sum',
+        () => expect(ld(balance: 1234.9, pct: 100).maxRedeemable(100000), 1234));
+  });
+
   group('Checkout integrity', () {
     testWidgets('blocks submit without address / region and shows errors', (tester) async {
       tester.view.physicalSize = const Size(390 * 3, 1600 * 3);

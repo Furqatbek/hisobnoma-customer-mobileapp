@@ -273,6 +273,17 @@ class LoyaltyData {
     required this.maxRedeemPercent,
     required this.entries,
   });
+  /// Cashback redeemable against [goodsTotal] (the order total after other
+  /// discounts): capped by both the balance and [maxRedeemPercent] of the
+  /// goods, floored to a whole sum, and zero when redemption is disabled or
+  /// the usable amount is below [minRedeem].
+  double maxRedeemable(double goodsTotal) {
+    if (!enabled) return 0;
+    final cap = goodsTotal * maxRedeemPercent / 100;
+    final usable = balance < cap ? balance : cap;
+    return usable < minRedeem ? 0 : usable.floorToDouble();
+  }
+
   factory LoyaltyData.fromJson(Map<String, dynamic> j) => LoyaltyData(
         balance: _d(j['balance']),
         enabled: j['enabled'] == true,
