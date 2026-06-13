@@ -11,6 +11,39 @@ implemented for the corresponding features to actually work.
 
 ---
 
+## Status — ✅ implemented on the backend
+
+The backend team reports **all of §1–§7 implemented** (authoritative API docs:
+`docs/API.md` + Postman collection in the backend repo). The client is aligned.
+Notes from the rollout:
+
+- **§1 payment endpoints exist but providers aren't live yet** in staging:
+  `POST /web/orders/{n}/payment` returns **`503 PAYMENT_NOT_CONFIGURED`**. The
+  client treats this as graceful degradation (toast + pay-on-delivery), and the
+  online-payment screen stays gated behind the `ONLINE_PAYMENT` **build flag** —
+  flip it on (`--dart-define=ONLINE_PAYMENT=true`) once real merchant
+  credentials are wired; no other client change needed.
+- **§3 correction applied:** `discountTotal` is **promotions only** and
+  `couponDiscount` is a **separate, non-overlapping** amount — the client shows
+  both as distinct lines (it had wrongly assumed overlap; now fixed).
+- **§6 error codes** are consumed: the app shows `message` directly and falls
+  back by status. Known `error.code`s: `COUPON_INVALID`, `PRODUCT_UNAVAILABLE`,
+  `OTP_INVALID`, `OTP_EXPIRED`, `INVALID_PHONE`, `ORDER_ALREADY_PAID`,
+  `PAYMENT_NOT_CONFIGURED`, `TOO_MANY_REQUESTS`, `NOT_FOUND`, `UNAUTHORIZED`.
+- **§7 fractional** is live client-side: products with `fractional: true` +
+  `step` use a decimal stepper; order lines send decimal `quantity`.
+
+**Cross-team open items (neither blocks the other):**
+- *Backend:* wire the real Payme/Click provider webhooks (needs merchant +
+  sandbox credentials); until then payments are confirmed by staff.
+- *Client:* configure Android App Links / iOS Universal Links so the
+  `returnUrl` deep-link can reopen the app — **not blocking**, polling is the
+  primary confirmation path.
+
+The full spec below remains the field-level reference.
+
+---
+
 ## Conventions (already in place)
 
 - **Base path:** `…/api/v1`; customer endpoints live under `/web/...`.
