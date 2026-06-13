@@ -20,6 +20,11 @@ class OrderCard extends StatelessWidget {
   final VoidCallback? onPay;
   const OrderCard({super.key, required this.order, this.expanded = true, this.onPay});
 
+  // Aggregate discount to show as a single line, preferring the server's
+  // discountTotal and falling back to a bare coupon discount.
+  double _orderDiscount(Order order) =>
+      order.discountTotal > 0 ? order.discountTotal : order.couponDiscount;
+
   Widget _feeRow(String label, String value, {Color valueColor = AppColors.sec}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -86,14 +91,14 @@ class OrderCard extends StatelessWidget {
               ),
             if (order.deliveryFee > 0)
               _feeRow(tr('Етказиб бериш'), formatSum(order.deliveryFee)),
-            if (order.discountTotal > 0)
-              _feeRow(tr('Чегирма'), '−${formatSum(order.discountTotal)}',
+            // One discount line: discountTotal is the aggregate (it already
+            // includes any coupon), so we don't also subtract couponDiscount
+            // and double-count. The coupon code is shown as info only.
+            if (_orderDiscount(order) > 0)
+              _feeRow(tr('Чегирма'), '−${formatSum(_orderDiscount(order))}',
                   valueColor: AppColors.green),
-            if (order.couponDiscount > 0)
-              _feeRow(
-                  (order.couponCode ?? '').isNotEmpty ? 'Купон ${order.couponCode}' : 'Купон',
-                  '−${formatSum(order.couponDiscount)}',
-                  valueColor: AppColors.green),
+            if ((order.couponCode ?? '').isNotEmpty)
+              _feeRow(tr('Купон'), order.couponCode!),
             if (order.pointsSpent > 0)
               _feeRow(tr('Кешбек ишлатилди'), '−${formatSum(order.pointsSpent)}',
                   valueColor: AppColors.green),

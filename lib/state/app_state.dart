@@ -359,11 +359,17 @@ class AppState extends ChangeNotifier {
   }
 
   void _onUnauthorized() {
+    final wasLoggedIn = user != null;
     _tokens.clear();
     user = null;
     wishlistItems = [];
     wishlistIds = {};
     unreadCount = 0;
+    // Explain the drop — but only if we thought we were logged in, so a stale
+    // token at cold start doesn't toast on every launch.
+    if (wasLoggedIn) {
+      toast(tr2('Сессия тугади. Қайта киринг.', 'Сессия истекла. Войдите снова.'));
+    }
     notifyListeners();
   }
 
