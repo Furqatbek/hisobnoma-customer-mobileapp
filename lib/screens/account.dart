@@ -652,6 +652,9 @@ class OrderStatusScreen extends StatefulWidget {
 class _OrderStatusScreenState extends State<OrderStatusScreen> {
   late final TextEditingController _numCtrl;
   late String _phone;
+  // Bumped only when a recent-order chip fills the phone, so PhoneField
+  // rebuilds with the new value without disrupting manual typing.
+  int _phoneEpoch = 0;
   Order? _result;
   bool _notFound = false;
   bool _searching = false;
@@ -705,6 +708,53 @@ class _OrderStatusScreenState extends State<OrderStatusScreen> {
     }
   }
 
+  Widget _recentRow(LocalOrderRef o) {
+    final pm = paymentStatusMeta[o.paid ? 'PAID' : ''];
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        _numCtrl.text = o.orderNumber;
+        setState(() {
+          _phone = o.phone;
+          _phoneEpoch++; // refresh the phone field display
+        });
+        _lookup();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: AppColors.sep, width: 0.5)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(o.orderNumber,
+                      style: TextStyle(
+                          fontFamily: kMonoFamily, fontSize: 14.5, fontWeight: FontWeight.w600, color: AppColors.text, letterSpacing: 0.3)),
+                  const SizedBox(height: 2),
+                  Text('${formatDate(o.createdAt)} · ${formatSum(o.total)}',
+                      style: ts(size: 13, color: AppColors.ter)),
+                ],
+              ),
+            ),
+            if (pm != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                decoration: BoxDecoration(color: pm.bg, borderRadius: BorderRadius.circular(100)),
+                child: Text(tr(pm.label), style: ts(size: 12, weight: FontWeight.w600, color: pm.color)),
+              ),
+              const SizedBox(width: 8),
+            ],
+            Ic.chevronR(),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final canSearch = _numCtrl.text.trim().isNotEmpty && _phone.replaceAll(RegExp(r'\D'), '').length == 9;
@@ -727,7 +777,13 @@ class _OrderStatusScreenState extends State<OrderStatusScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Field(child: PhoneField(initialRaw: _phone, onChanged: (v) => setState(() => _phone = v))),
+                Field(
+                  child: PhoneField(
+                    key: ValueKey(_phoneEpoch),
+                    initialRaw: _phone,
+                    onChanged: (v) => setState(() => _phone = v),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 BigButton(loading: _searching, disabled: !canSearch, onTap: _lookup, child: Text(tr('Излаш'))),
                 if (_notFound)
@@ -747,6 +803,12 @@ class _OrderStatusScreenState extends State<OrderStatusScreen> {
                           : null,
                     ),
                   ),
+                if (_result == null && !_searching && app.recentOrders.isNotEmpty) ...[
+                  const SizedBox(height: 26),
+                  SectionHeader(tr('Сўнгги буюртмалар')),
+                  const SizedBox(height: 6),
+                  for (final o in app.recentOrders.take(5)) _recentRow(o),
+                ],
               ],
             ),
           ),

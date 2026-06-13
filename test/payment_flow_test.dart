@@ -84,6 +84,51 @@ void main() {
     });
   });
 
+  group('Local order recovery', () {
+    test('LocalOrderRef round-trips through json and copyWith', () {
+      const ref = LocalOrderRef(
+        orderNumber: 'WO-1',
+        phone: '901234567',
+        total: 33000,
+        paymentMethod: 'CARD',
+        paid: false,
+        createdAt: '2026-06-12T10:00:00Z',
+      );
+      final back = LocalOrderRef.fromJson(ref.toJson());
+      expect(back.orderNumber, 'WO-1');
+      expect(back.phone, '901234567');
+      expect(back.total, 33000);
+      expect(back.paymentMethod, 'CARD');
+      expect(back.paid, false);
+      expect(ref.copyWith(paid: true).paid, true);
+    });
+
+    test('recent orders + last phone persist across AppState instances', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final a1 = AppState(prefs, TokenStore(), ApiClient(TokenStore()));
+      a1.recentOrders.insert(
+        0,
+        const LocalOrderRef(
+          orderNumber: 'WO-9',
+          phone: '901112233',
+          total: 50000,
+          paymentMethod: 'CARD',
+          paid: false,
+          createdAt: '2026-06-12T10:00:00Z',
+        ),
+      );
+      a1.markLocalOrderPaid('WO-9'); // persists
+      await prefs.setString('hisobnoma-shop-last-phone', '901112233');
+
+      // A fresh instance (app restart) reads them back.
+      final a2 = AppState(prefs, TokenStore(), ApiClient(TokenStore()));
+      expect(a2.lastOrderPhone, '901112233');
+      expect(a2.recentOrders.single.orderNumber, 'WO-9');
+      expect(a2.recentOrders.single.paid, true);
+    });
+  });
+
   group('Checkout payment section', () {
     testWidgets('offers cash and card; selection updates the summary', (tester) async {
       // Tall surface so the lazy ListView builds the summary card too.

@@ -131,6 +131,7 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
       final p = await app.payments.status(widget.orderNumber, phoneE164: _phoneE164);
       if (!mounted) return;
       if (p.isPaid) {
+        app.markLocalOrderPaid(widget.orderNumber);
         app.toast(tr('Тўлов қабул қилинди!'));
         _finish(paid: true);
         return;

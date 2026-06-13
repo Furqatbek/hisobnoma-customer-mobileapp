@@ -187,6 +187,54 @@ class Order {
       );
 }
 
+/// A locally-remembered reference to a placed order so a guest (who has no
+/// server-side order history) can still find, track and — when online payment
+/// is enabled — pay it after restarting the app. Persisted newest-first.
+class LocalOrderRef {
+  final String orderNumber;
+  final String phone; // local 9-digit; authorises lookup/payment
+  final double total;
+  final String paymentMethod; // CASH | CARD
+  final bool paid;
+  final String createdAt; // ISO 8601
+
+  const LocalOrderRef({
+    required this.orderNumber,
+    required this.phone,
+    required this.total,
+    required this.paymentMethod,
+    required this.paid,
+    required this.createdAt,
+  });
+
+  LocalOrderRef copyWith({bool? paid}) => LocalOrderRef(
+        orderNumber: orderNumber,
+        phone: phone,
+        total: total,
+        paymentMethod: paymentMethod,
+        paid: paid ?? this.paid,
+        createdAt: createdAt,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'orderNumber': orderNumber,
+        'phone': phone,
+        'total': total,
+        'paymentMethod': paymentMethod,
+        'paid': paid,
+        'createdAt': createdAt,
+      };
+
+  factory LocalOrderRef.fromJson(Map<String, dynamic> j) => LocalOrderRef(
+        orderNumber: (j['orderNumber'] ?? '') as String,
+        phone: (j['phone'] ?? '') as String,
+        total: _d(j['total']),
+        paymentMethod: ((j['paymentMethod'] ?? '') as String).toUpperCase(),
+        paid: j['paid'] == true,
+        createdAt: (j['createdAt'] ?? '') as String,
+      );
+}
+
 class LoyaltyEntry {
   final int id;
   final String type; // EARN | SPEND | EXPIRE | ADJUST
