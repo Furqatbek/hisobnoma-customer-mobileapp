@@ -23,6 +23,35 @@ class ApiConfig {
   static const bool onlinePaymentEnabled =
       bool.fromEnvironment('ONLINE_PAYMENT', defaultValue: false);
 
+  /// Optional comma-separated host allowlist for provider checkout URLs
+  /// (empty = allow any HTTPS host). Lock down per deployment, e.g.:
+  ///   --dart-define=PAYMENT_HOSTS=checkout.paycom.uz,my.click.uz
+  static const String paymentHostAllowlist =
+      String.fromEnvironment('PAYMENT_HOSTS', defaultValue: '');
+
+  /// Optional URL the payment provider should redirect back to when done.
+  /// Pair with platform app-links to reopen the app (see README).
+  static const String paymentReturnUrl =
+      String.fromEnvironment('PAYMENT_RETURN_URL', defaultValue: '');
+
+  /// True when the API base uses TLS — money must not move over cleartext.
+  static bool get apiIsSecure => baseUrl.startsWith('https://');
+
+  /// Whether a provider checkout URL is safe to hand to the OS: it must be
+  /// HTTPS (blocks `payme://`, `intent://`, `javascript:`, cleartext) and,
+  /// when [paymentHostAllowlist] is set, come from an allowed host.
+  static bool isAllowedPaymentUrl(String raw) {
+    final uri = Uri.tryParse(raw);
+    if (uri == null || uri.scheme.toLowerCase() != 'https' || uri.host.isEmpty) return false;
+    if (paymentHostAllowlist.isEmpty) return true;
+    final host = uri.host.toLowerCase();
+    return paymentHostAllowlist
+        .split(',')
+        .map((h) => h.trim().toLowerCase())
+        .where((h) => h.isNotEmpty)
+        .any((h) => host == h || host.endsWith('.$h'));
+  }
+
   /// Shop contact details (not exposed by the API — app config).
   static const String shopPhone =
       String.fromEnvironment('SHOP_PHONE', defaultValue: '+998 71 200 00 00');

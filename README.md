@@ -58,8 +58,22 @@ The design medium is **HTML/CSS/JS** — these are prototypes, not production co
 | `POST /web/cart/price` | authoritative cart subtotal/discount/total shown at checkout |
 | `POST /web/cart/validate-coupon` | validate a coupon and return its discount |
 | `GET /web/me/loyalty` | cashback balance, `minRedeem`, `maxRedeemPercent` for redemption |
-| `POST /web/orders/{n}/payment` body `{phone, provider}` | create a payment; returns `{paymentUrl, status, provider, amount}` |
-| `GET /web/orders/{n}/payment?phone=…` | payment status: `PENDING \| PAID \| FAILED \| CANCELLED \| REFUNDED` |
+| `POST /web/orders/{n}/payment` body `{phone, provider, returnUrl?}` | create a payment; returns `{id, paymentUrl, status, provider, amount}` |
+| `GET /web/payments/{id}` | payment status by opaque id: `PENDING \| PAID \| FAILED \| CANCELLED \| REFUNDED` |
 | Order DTO field `paymentStatus` | drives the status pills and the pay-again button |
+
+### Security notes / backend requirements
+
+- **HTTPS only for payments.** Release builds refuse to start an online payment when
+  `API_BASE_URL` isn't `https://`, and the app launches a provider checkout URL only if it is
+  HTTPS (blocks `payme://`, `intent://`, `javascript:`, cleartext). Optionally pin hosts with
+  `--dart-define=PAYMENT_HOSTS=checkout.paycom.uz,my.click.uz`.
+- **No PII in URLs.** Payment status is polled by the opaque `id` from the create call; the
+  phone is only ever sent in the create POST body. The backend should likewise treat order
+  numbers as **non-secret** (they're sequential) — rate-limit `GET /web/orders/{n}?phone=…`
+  and prefer an unguessable token over phone-as-auth.
+- **Deep links (follow-up).** `PAYMENT_RETURN_URL` is forwarded to the provider, but reopening
+  the app on redirect needs platform app-links (Android intent-filters / iOS associated
+  domains) that aren't configured yet — until then the resume-check + polling is the path back.
 
 Tests for the flow live in `test/payment_flow_test.dart`.

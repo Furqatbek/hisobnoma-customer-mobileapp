@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../data/api/api_client.dart';
+import '../data/api/api_config.dart';
 import '../data/format.dart';
 import '../data/models.dart';
 import '../data/strings.dart';
@@ -34,6 +36,7 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
   static const _maxPolls = 36;
 
   String? _activeProvider; // provider whose checkout link is being created
+  String? _paymentId; // opaque id returned by create, used to poll status
   bool _waiting = false; // checkout page opened, awaiting confirmation
   bool _checking = false; // manual status check (drives the button spinner)
   bool _checkBusy = false; // any status check in flight (poll + manual guard)
@@ -93,6 +96,11 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
 
   Future<void> _pay(String provider) async {
     if (_activeProvider != null) return;
+    // Never move money over cleartext in a release build.
+    if (kReleaseMode && !ApiConfig.apiIsSecure) {
+      setState(() => _error = tr('Хавфсиз уланиш йўқ. Тўлов вақтинча мавжуд эмас.'));
+      return;
+    }
     setState(() {
       _activeProvider = provider;
       _error = null;
@@ -101,9 +109,14 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
       final p =
           await app.payments.create(widget.orderNumber, phoneE164: _phoneE164, provider: provider);
       if (p.paymentUrl.isEmpty) throw ApiException(tr('Тўлов ҳаволасини олиб бўлмади'));
+      // Only hand a validated HTTPS provider URL to the OS.
+      if (!ApiConfig.isAllowedPaymentUrl(p.paymentUrl)) {
+        throw ApiException(tr('Тўлов ҳаволаси хавфсиз эмас'));
+      }
       final ok = await launchUrl(Uri.parse(p.paymentUrl), mode: LaunchMode.externalApplication);
       if (!ok) throw ApiException(tr('Тўлов ҳаволасини очиб бўлмади'));
       if (!mounted) return;
+      _paymentId = p.id;
       setState(() => _waiting = true);
       _poll?.cancel();
       _polls = 0;
@@ -124,11 +137,12 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
   }
 
   Future<void> _check({bool silent = false}) async {
-    if (_checkBusy) return;
+    final id = _paymentId;
+    if (id == null || _checkBusy) return;
     _checkBusy = true;
     if (!silent) setState(() => _checking = true);
     try {
-      final p = await app.payments.status(widget.orderNumber, phoneE164: _phoneE164);
+      final p = await app.payments.status(id);
       if (!mounted) return;
       if (p.isPaid) {
         app.markLocalOrderPaid(widget.orderNumber);

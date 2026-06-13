@@ -84,6 +84,24 @@ void main() {
     });
   });
 
+  group('Payment URL safety (#9)', () {
+    test('only https provider URLs are allowed', () {
+      expect(ApiConfig.isAllowedPaymentUrl('https://checkout.paycom.uz/abc'), true);
+      expect(ApiConfig.isAllowedPaymentUrl('http://checkout.paycom.uz/abc'), false);
+      expect(ApiConfig.isAllowedPaymentUrl('payme://pay?x=1'), false);
+      expect(ApiConfig.isAllowedPaymentUrl('intent://scan#Intent;end'), false);
+      expect(ApiConfig.isAllowedPaymentUrl('javascript:alert(1)'), false);
+      expect(ApiConfig.isAllowedPaymentUrl('not a url'), false);
+      expect(ApiConfig.isAllowedPaymentUrl(''), false);
+    });
+
+    test('default build (no host allowlist) requires only https + a host', () {
+      expect(ApiConfig.paymentHostAllowlist, '');
+      expect(ApiConfig.isAllowedPaymentUrl('https://any-provider.example/pay'), true);
+      expect(ApiConfig.isAllowedPaymentUrl('https://'), false); // no host
+    });
+  });
+
   group('Local order recovery', () {
     test('LocalOrderRef round-trips through json and copyWith', () {
       const ref = LocalOrderRef(

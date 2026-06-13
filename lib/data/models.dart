@@ -507,13 +507,17 @@ const paymentMethods = <String, PaymentMethodMeta>{
   'CARD': PaymentMethodMeta(label: 'Карта орқали', hint: 'Етказиб берилганда карта орқали тўлайсиз'),
 };
 
-/// Online payment state of an order, from `/web/orders/{n}/payment`.
+/// Online payment state of an order. Created via
+/// `POST /web/orders/{n}/payment`; polled via `GET /web/payments/{id}` using
+/// the opaque [id] (no phone/order number in the URL).
 class OrderPayment {
+  final String id; // opaque payment token used for status polling
   final String status; // PENDING | PAID | FAILED | CANCELLED | NONE
   final String provider; // PAYME | CLICK | UZUM | ''
   final String paymentUrl; // provider checkout page (empty when n/a)
   final double amount;
   const OrderPayment({
+    required this.id,
     required this.status,
     required this.provider,
     required this.paymentUrl,
@@ -524,6 +528,7 @@ class OrderPayment {
   bool get isFailed => status == 'FAILED' || status == 'CANCELLED';
 
   factory OrderPayment.fromJson(Map<String, dynamic> j) => OrderPayment(
+        id: (j['id'] ?? j['paymentId'] ?? '').toString(),
         status: ((j['status'] ?? '') as String).toUpperCase(),
         provider: ((j['provider'] ?? '') as String).toUpperCase(),
         paymentUrl: (j['paymentUrl'] ?? j['url'] ?? '') as String,

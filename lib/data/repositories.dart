@@ -1,4 +1,5 @@
 import 'api/api_client.dart';
+import 'api/api_config.dart';
 import 'models.dart';
 
 /// One repository per domain of the public mobile API.
@@ -101,8 +102,9 @@ class OrderRepository {
       _c.getPage('/web/me/orders', Order.fromJson, query: {'page': page, 'size': size});
 }
 
-/// Online payment for an order. Guest access mirrors the order lookup:
-/// the order's phone authorises the call.
+/// Online payment for an order. The phone authorises *creating* a payment and
+/// is sent in the POST body (never a query string); status is then polled by
+/// the opaque payment id the create call returns, so no PII rides in URLs.
 class PaymentRepository {
   PaymentRepository(this._c);
   final ApiClient _c;
@@ -113,14 +115,14 @@ class PaymentRepository {
     final data = await _c.postData('/web/orders/$orderNumber/payment', body: {
       'phone': phoneE164,
       'provider': provider,
+      if (ApiConfig.paymentReturnUrl.isNotEmpty) 'returnUrl': ApiConfig.paymentReturnUrl,
     });
     return OrderPayment.fromJson(data as Map<String, dynamic>);
   }
 
-  /// Current payment status of an order.
-  Future<OrderPayment> status(String orderNumber, {required String phoneE164}) async {
-    final data =
-        await _c.getData('/web/orders/$orderNumber/payment', query: {'phone': phoneE164});
+  /// Current status of a payment, by its opaque id (no PII in the URL).
+  Future<OrderPayment> status(String paymentId) async {
+    final data = await _c.getData('/web/payments/$paymentId');
     return OrderPayment.fromJson(data as Map<String, dynamic>);
   }
 }
