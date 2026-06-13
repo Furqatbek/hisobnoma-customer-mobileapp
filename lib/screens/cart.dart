@@ -307,6 +307,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   List<Region> _regions = [];
   List<Village> _villages = [];
   bool _regionsLoading = true;
+  bool _regionsError = false;
 
   // Server-authoritative cart pricing (applies promotions the client can't
   // see). Null until loaded / on failure — then we fall back to the client sum.
@@ -407,10 +408,17 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _loyalty?.maxRedeemable(_goodsAfterDiscounts(clientSum)) ?? 0;
 
   Future<void> _loadRegions() async {
-    setState(() => _regionsLoading = true);
+    setState(() {
+      _regionsLoading = true;
+      _regionsError = false;
+    });
     try {
       _regions = await app.delivery.regions();
-    } catch (_) {}
+    } catch (_) {
+      // Don't swallow it: region is required, so a silent empty list would
+      // strand the user (and skip the delivery fee). Surface a retry.
+      if (mounted) setState(() => _regionsError = true);
+    }
     if (mounted) setState(() => _regionsLoading = false);
   }
 
@@ -519,6 +527,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 const SizedBox(height: 12),
                 if (_regionsLoading)
                   const Padding(padding: EdgeInsets.symmetric(vertical: 8), child: Spinner())
+                else if (_regionsError)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(tr('Туманларни юклаб бўлмади'),
+                            style: ts(size: 14.5, color: AppColors.red)),
+                      ),
+                      ShopTextButton(
+                        fontSize: 14.5,
+                        onTap: _loadRegions,
+                        child: Text(tr2('Қайта уриниш', 'Повторить')),
+                      ),
+                    ],
+                  )
                 else
                   Field(
                     error: _regionErr ? tr('Туманни танланг') : null,

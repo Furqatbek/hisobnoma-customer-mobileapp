@@ -28,6 +28,7 @@ const _langKey = 'hisobnoma-shop-lang';
 const _payKey = 'hisobnoma-shop-pay-method';
 const _ordersKey = 'hisobnoma-shop-recent-orders';
 const _lastPhoneKey = 'hisobnoma-shop-last-phone';
+const _otpUntilKey = 'hisobnoma-shop-otp-until';
 
 /// Central app state: navigation, cart (client-side), the authenticated session,
 /// the server-backed wishlist, and the repositories every screen talks to.
@@ -55,6 +56,8 @@ class AppState extends ChangeNotifier {
     if (paymentMethods.containsKey(pm)) payMethod = pm!;
     lastOrderPhone = _prefs.getString(_lastPhoneKey) ?? '';
     recentOrders = _loadRecentOrders(_prefs);
+    final until = _prefs.getInt(_otpUntilKey);
+    if (until != null) otpCooldownUntil = DateTime.fromMillisecondsSinceEpoch(until);
     _api.onUnauthorized = _onUnauthorized;
   }
 
@@ -111,6 +114,23 @@ class AppState extends ChangeNotifier {
 
   /// Last chosen payment method (CASH | CARD) — the checkout default.
   String payMethod = 'CASH';
+
+  /// When the OTP-resend throttle expires. Held here (and persisted) rather
+  /// than in the login screen's state, so leaving and re-opening login can't
+  /// reset the client-side cooldown.
+  DateTime? otpCooldownUntil;
+  int get otpCooldownRemaining {
+    final u = otpCooldownUntil;
+    if (u == null) return 0;
+    final s = u.difference(DateTime.now()).inMilliseconds / 1000;
+    return s <= 0 ? 0 : s.ceil();
+  }
+
+  void startOtpCooldown([int seconds = 60]) {
+    otpCooldownUntil = DateTime.now().add(Duration(seconds: seconds));
+    _prefs.setInt(_otpUntilKey, otpCooldownUntil!.millisecondsSinceEpoch);
+    notifyListeners();
+  }
 
   // ── wishlist (server-backed) ───────────────────────────────
   List<WishlistItem> wishlistItems = [];
@@ -306,7 +326,10 @@ class AppState extends ChangeNotifier {
   }
 
   // ── auth ───────────────────────────────────────────────────
-  Future<void> requestOtp(String local9) => auth.requestOtp(phoneToE164(local9));
+  Future<void> requestOtp(String local9) async {
+    await auth.requestOtp(phoneToE164(local9));
+    startOtpCooldown(); // throttle survives screen re-entry / restart
+  }
 
   Future<void> verifyOtp(String local9, String code, {String? name, String? referralCode}) async {
     final session = await auth.verify(phoneToE164(local9), code, name: name, referralCode: referralCode);

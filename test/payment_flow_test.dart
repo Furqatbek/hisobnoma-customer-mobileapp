@@ -182,21 +182,48 @@ void main() {
         () => expect(ld(balance: 1234.9, pct: 100).maxRedeemable(100000), 1234));
   });
 
+  group('OTP cooldown (#13)', () {
+    test('cooldown is held in state and survives a fresh AppState (restart)', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final a1 = AppState(prefs, TokenStore(), ApiClient(TokenStore()));
+      expect(a1.otpCooldownRemaining, 0);
+      a1.startOtpCooldown(60);
+      expect(a1.otpCooldownRemaining, greaterThan(55));
+
+      // New instance (screen re-entry / app restart) still sees the throttle.
+      final a2 = AppState(prefs, TokenStore(), ApiClient(TokenStore()));
+      expect(a2.otpCooldownRemaining, greaterThan(0));
+    });
+
+    test('remaining is zero once the deadline passes', () async {
+      SharedPreferences.setMockInitialValues({
+        'hisobnoma-shop-otp-until':
+            DateTime.now().subtract(const Duration(seconds: 1)).millisecondsSinceEpoch,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final app = AppState(prefs, TokenStore(), ApiClient(TokenStore()));
+      expect(app.otpCooldownRemaining, 0);
+    });
+  });
+
   group('Checkout integrity', () {
-    testWidgets('blocks submit without address / region and shows errors', (tester) async {
+    testWidgets('blocks submit and surfaces address + region-load errors', (tester) async {
       tester.view.physicalSize = const Size(390 * 3, 1600 * 3);
       tester.view.devicePixelRatio = 3;
       addTearDown(tester.view.reset);
 
       final app = await _app();
       await tester.pumpWidget(_wrap(CheckoutScreen(app: app)));
-      await tester.pumpAndSettle(); // regions fetch fails (no backend) → empty
+      await tester.pumpAndSettle(); // regions fetch fails (no backend)
+
+      // #14: the region load failure is surfaced with a retry, not swallowed.
+      expect(find.text('Туманларни юклаб бўлмади'), findsOneWidget);
 
       await tester.tap(find.text('Буюртмани юбориш'));
       await tester.pumpAndSettle();
-      expect(find.text('Манзилни киритинг'), findsOneWidget);
-      expect(find.text('Туманни танланг'), findsOneWidget);
-      expect(app.screen.name, isNot('success'));
+      expect(find.text('Манзилни киритинг'), findsOneWidget); // address required
+      expect(app.screen.name, isNot('success')); // submit blocked
     });
 
     testWidgets('sold-out cart item blocks ordering', (tester) async {

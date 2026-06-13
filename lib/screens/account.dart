@@ -422,7 +422,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _nameCtrl = TextEditingController();
   String _error = '';
   bool _sending = false;
-  int _cooldown = 0;
   Timer? _cooldownTimer;
 
   AppState get app => widget.app;
@@ -436,19 +435,35 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _startCooldown() {
-    setState(() => _cooldown = 60);
+  /// Ticks the displayed countdown once a second; the deadline itself lives in
+  /// AppState, so this is purely for the label.
+  void _tickCooldown() {
     _cooldownTimer?.cancel();
+    if (app.otpCooldownRemaining <= 0) return;
     _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (!mounted) return;
-      setState(() => _cooldown--);
-      if (_cooldown <= 0) t.cancel();
+      if (!mounted || app.otpCooldownRemaining <= 0) {
+        t.cancel();
+        if (mounted) setState(() {});
+        return;
+      }
+      setState(() {});
     });
   }
 
   Future<void> _sendCode() async {
     if (_phone.replaceAll(RegExp(r'\D'), '').length != 9) {
       setState(() => _error = tr('Телефон рақам нотўғри'));
+      return;
+    }
+    // A code was already sent within the cooldown — go straight to entry
+    // instead of re-requesting (and re-triggering an SMS).
+    if (app.otpCooldownRemaining > 0) {
+      setState(() {
+        _error = '';
+        _stage = 2;
+      });
+      _tickCooldown();
+      Future.delayed(const Duration(milliseconds: 60), () => _codeFocus.requestFocus());
       return;
     }
     setState(() {
@@ -462,7 +477,7 @@ class _LoginScreenState extends State<LoginScreen> {
         _sending = false;
         _stage = 2;
       });
-      _startCooldown();
+      _tickCooldown();
       Future.delayed(const Duration(milliseconds: 60), () => _codeFocus.requestFocus());
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -495,9 +510,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _resend() async {
+    if (app.otpCooldownRemaining > 0) return; // throttled
     try {
       await app.requestOtp(_phone.replaceAll(RegExp(r'\D'), ''));
-      _startCooldown();
+      _tickCooldown();
       app.toast(tr('Код қайта юборилди'));
     } on ApiException catch (e) {
       setState(() => _error = e.message);
@@ -626,10 +642,10 @@ class _LoginScreenState extends State<LoginScreen> {
         BigButton(loading: _sending, disabled: _codeCtrl.text.length != 6, onTap: _verify, child: Text(tr('Тасдиқлаш'))),
         const SizedBox(height: 8),
         Center(
-          child: _cooldown > 0
+          child: app.otpCooldownRemaining > 0
               ? Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: Text('${tr('Қайта юбориш')} — $_cooldown ${tr2('сония', 'сек')}',
+                  child: Text('${tr('Қайта юбориш')} — ${app.otpCooldownRemaining} ${tr2('сония', 'сек')}',
                       style: ts(size: 14.5, color: AppColors.ter)),
                 )
               : ShopTextButton(fontSize: 14.5, onTap: _resend, child: Text(tr('Қайта юбориш'))),
