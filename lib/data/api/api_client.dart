@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 
+import '../strings.dart';
 import 'api_config.dart';
 import 'token_store.dart';
 
@@ -57,10 +58,30 @@ class ApiClient {
       if (e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.receiveTimeout ||
           e.type == DioExceptionType.connectionError) {
-        return ApiException('Тармоққа уланиб бўлмади', code: 'NETWORK');
+        return ApiException(
+            tr2('Интернет алоқаси йўқ. Уланишни текширинг.', 'Нет соединения. Проверьте интернет.'),
+            code: 'NETWORK');
       }
     }
-    return ApiException('Кутилмаган хатолик', code: 'UNKNOWN');
+    return ApiException(
+        tr2('Кутилмаган хатолик юз берди.', 'Произошла непредвиденная ошибка.'),
+        code: 'UNKNOWN');
+  }
+
+  /// Friendly fallback for an HTTP status when the server didn't return a
+  /// user-facing message — so a shopper never sees a raw "Хатолик (500)".
+  String _statusMessage(int status) {
+    if (status >= 500) {
+      return tr2('Серверда хатолик. Бироздан сўнг қайта уриниб кўринг.',
+          'Ошибка сервера. Попробуйте позже.');
+    }
+    if (status == 404) return tr2('Топилмади.', 'Не найдено.');
+    if (status == 429) {
+      return tr2('Жуда кўп уриниш. Бироздан сўнг қайта уриниб кўринг.',
+          'Слишком много попыток. Попробуйте позже.');
+    }
+    return tr2('Амални бажариб бўлмади. Қайта уриниб кўринг.',
+        'Не удалось выполнить. Попробуйте ещё раз.');
   }
 
   /// Reads the HTTP response, throwing [ApiException] on error envelopes/status.
@@ -69,17 +90,21 @@ class ApiClient {
     final body = res.data;
     if (status == 401) {
       onUnauthorized?.call();
-      throw ApiException('Сессия тугади', code: 'UNAUTHORIZED', status: 401);
+      throw ApiException(tr2('Сессия тугади. Қайта киринг.', 'Сессия истекла. Войдите снова.'),
+          code: 'UNAUTHORIZED', status: 401);
     }
     if (status >= 200 && status < 300) return body;
-    String msg = 'Хатолик ($status)';
+    // Prefer a user-facing message from the API; otherwise a friendly fallback
+    // by status — never a raw "Хатолик (code)".
     String? code;
+    String? serverMsg;
     if (body is Map) {
-      if (body['message'] is String) msg = body['message'];
+      final m = body['message'];
+      if (m is String && m.trim().isNotEmpty) serverMsg = m.trim();
       final err = body['error'];
-      if (err is Map && err['code'] is String) code = err['code'];
+      if (err is Map && err['code'] is String) code = err['code'] as String;
     }
-    throw ApiException(msg, code: code, status: status);
+    throw ApiException(serverMsg ?? _statusMessage(status), code: code, status: status);
   }
 
   /// Unwraps `{ success, data }` and returns `data`.

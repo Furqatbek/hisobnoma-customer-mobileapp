@@ -38,6 +38,7 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
   String? _activeProvider; // provider whose checkout link is being created
   String? _paymentId; // opaque id returned by create, used to poll status
   bool _waiting = false; // checkout page opened, awaiting confirmation
+  bool _pollExhausted = false; // auto-poll hit its cap; only manual checks now
   bool _checking = false; // manual status check (drives the button spinner)
   bool _checkBusy = false; // any status check in flight (poll + manual guard)
   String? _error;
@@ -117,12 +118,17 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
       if (!ok) throw ApiException(tr('Тўлов ҳаволасини очиб бўлмади'));
       if (!mounted) return;
       _paymentId = p.id;
-      setState(() => _waiting = true);
+      setState(() {
+        _waiting = true;
+        _pollExhausted = false;
+      });
       _poll?.cancel();
       _polls = 0;
       _poll = Timer.periodic(const Duration(seconds: 5), (t) {
         if (++_polls > _maxPolls) {
           t.cancel();
+          // Stop pretending we're still checking — switch to a manual prompt.
+          if (mounted) setState(() => _pollExhausted = true);
           return;
         }
         _check(silent: true);
@@ -248,7 +254,10 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                     ),
                     child: Column(
                       children: [
-                        const Spinner(size: 26),
+                        if (_pollExhausted)
+                          const Icon(Icons.hourglass_bottom_rounded, size: 28, color: AppColors.sec)
+                        else
+                          const Spinner(size: 26),
                         const SizedBox(height: 14),
                         Text(tr('Тўлов кутилмоқда'),
                             style: ts(
@@ -257,7 +266,10 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                                 color: AppColors.text,
                                 letterSpacing: -0.25)),
                         const SizedBox(height: 5),
-                        Text(tr('Тўловни якунлаб, иловага қайтинг'),
+                        Text(
+                            _pollExhausted
+                                ? tr('Тўлаган бўлсангиз, «Тўловни текшириш»ни босинг')
+                                : tr('Тўловни якунлаб, иловага қайтинг'),
                             textAlign: TextAlign.center,
                             style: ts(
                                 size: 14.5,
@@ -273,7 +285,10 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
                         ShopTextButton(
                           onTap: () {
                             _poll?.cancel();
-                            setState(() => _waiting = false);
+                            setState(() {
+                              _waiting = false;
+                              _pollExhausted = false;
+                            });
                           },
                           child: Text(tr('Бошқа усул билан тўлаш')),
                         ),
