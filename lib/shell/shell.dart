@@ -81,7 +81,6 @@ class _ShopShellState extends State<ShopShell> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    gLang = app.lang; // keep the global in sync before children read tr()
     _visited.add(app.tab);
     final tabIndex = _tabOrder.indexOf(app.tab);
     final pushed = app.stack.length > 1;

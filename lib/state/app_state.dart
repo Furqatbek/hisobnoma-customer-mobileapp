@@ -55,7 +55,7 @@ class AppState extends ChangeNotifier {
     final l = _prefs.getString(_langKey);
     if (l == 'uz' || l == 'ru') {
       lang = l!;
-      gLang = l;
+      setUiLanguage(l);
     }
   }
 
@@ -175,7 +175,7 @@ class AppState extends ChangeNotifier {
 
   void setLang(String l) {
     lang = l;
-    gLang = l;
+    setUiLanguage(l);
     _prefs.setString(_langKey, l);
     notifyListeners();
   }

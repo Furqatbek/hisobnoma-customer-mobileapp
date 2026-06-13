@@ -104,6 +104,29 @@ void main() {
     });
   });
 
+  group('Language (#26)', () {
+    // The UI language is a shared module value; keep it from leaking.
+    tearDown(() => setUiLanguage('uz'));
+
+    testWidgets('setLang switches tr() and formatting (no shell sync needed)',
+        (tester) async {
+      final app = await _app();
+      expect(tr('Сават'), 'Сават'); // uz default
+      expect(formatSum(1000), contains('сўм'));
+
+      app.setLang('ru');
+      expect(tr('Сават'), 'Корзина');
+      expect(formatSum(1000), contains('сум'));
+    });
+
+    testWidgets('language restores from prefs on a fresh AppState', (tester) async {
+      SharedPreferences.setMockInitialValues({'hisobnoma-shop-lang': 'ru'});
+      final prefs = await SharedPreferences.getInstance();
+      AppState(prefs, TokenStore(), ApiClient(TokenStore())); // ctor sets the language
+      expect(tr('Сават'), 'Корзина');
+    });
+  });
+
   group('Local order recovery', () {
     test('LocalOrderRef round-trips through json and copyWith', () {
       const ref = LocalOrderRef(

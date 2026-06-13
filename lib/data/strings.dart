@@ -1,9 +1,15 @@
 /// Localization layer ported from shop-data.js.
 ///
-/// The prototype reads a global `window.__shopLang`; we mirror that with a
-/// top-level [gLang] that [AppState] updates before notifying listeners, so
-/// `tr()` re-evaluates with the new language on every rebuild.
-String gLang = 'uz';
+/// `tr()` / `tr2()` are intentionally context-free (called at hundreds of
+/// sites), so the current language is a module-level value rather than an
+/// InheritedWidget. It's encapsulated: read via [uiLang], and mutated only
+/// through [setUiLanguage] — which AppState calls on launch and on a language
+/// switch — rather than being a public global poked as a build side-effect.
+String _uiLang = 'uz';
+String get uiLang => _uiLang;
+void setUiLanguage(String lang) {
+  if (lang == 'uz' || lang == 'ru') _uiLang = lang;
+}
 
 /// Uzbek (Cyrillic) → Russian translations. `tr(s)` picks by current language.
 const Map<String, String> kRuDict = {
@@ -133,7 +139,7 @@ const Map<String, String> kRuDict = {
 };
 
 /// Returns Russian when current language is 'ru' and a translation exists.
-String tr(String s) => (gLang == 'ru' ? kRuDict[s] : null) ?? s;
+String tr(String s) => (_uiLang == 'ru' ? kRuDict[s] : null) ?? s;
 
 /// Inline two-language literal.
-String tr2(String uz, String ru) => gLang == 'ru' ? ru : uz;
+String tr2(String uz, String ru) => _uiLang == 'ru' ? ru : uz;

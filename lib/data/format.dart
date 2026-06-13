@@ -14,7 +14,7 @@ String formatSum(num? n) {
     if (i > 0 && (len - i) % 3 == 0) buf.write(_thinSpace);
     buf.write(digits[i]);
   }
-  return '$buf${gLang == 'ru' ? ' сум' : ' сўм'}';
+  return '$buf${uiLang == 'ru' ? ' сум' : ' сўм'}';
 }
 
 /// Integer → "3"; fractional → "1,5" (comma decimal).
@@ -82,7 +82,7 @@ String formatDate(String iso) {
   final dt = DateTime.tryParse(iso);
   if (dt == null) return iso;
   final l = dt.toLocal();
-  final months = gLang == 'ru' ? _ruMonths : _uzMonths;
+  final months = uiLang == 'ru' ? _ruMonths : _uzMonths;
   final base = '${l.day} ${months[l.month]}';
   return l.year == DateTime.now().year ? base : '$base ${l.year}';
 }
