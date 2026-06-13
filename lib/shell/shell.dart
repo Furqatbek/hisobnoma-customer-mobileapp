@@ -13,20 +13,46 @@ import '../screens/account.dart';
 import '../screens/extras.dart';
 import '../screens/wishlist.dart';
 
-/// Root shell — renders the active tab's top screen with the prototype's slide
-/// transitions, the bottom tab bar (hidden on pushed screens) and the toast.
-class ShopShell extends StatelessWidget {
+/// Tab order for the persistent root IndexedStack.
+const _tabOrder = ['catalog', 'cart', 'wallet', 'wishlist', 'profile'];
+
+/// Root shell. The five tab root screens live in a lazy [IndexedStack] so each
+/// keeps its state (catalog scroll/search/filter, loaded lists, …) while you
+/// dive into a pushed screen and come back. Pushed screens (product, checkout,
+/// payment, …) render in [_PushedOverlay] on top, with the prototype's slide
+/// transitions. The tab bar shows only at a tab's root; the toast sits above all.
+class ShopShell extends StatefulWidget {
   const ShopShell({super.key});
 
-  Widget _buildScreen(AppState app) {
-    final s = app.screen;
-    switch (s.name) {
-      case 'catalog':
-        return CatalogScreen(app: app);
-      case 'product':
-        return ProductDetailScreen(app: app, productId: s.productId!);
+  @override
+  State<ShopShell> createState() => _ShopShellState();
+}
+
+class _ShopShellState extends State<ShopShell> {
+  // Tabs are built only once visited (so we don't fire every tab's initial
+  // fetch at launch); once built they stay alive in the IndexedStack.
+  final Set<String> _visited = {};
+
+  Widget _rootScreen(AppState app, String tab) {
+    switch (tab) {
       case 'cart':
         return CartScreen(app: app);
+      case 'wallet':
+        return WalletScreen(app: app);
+      case 'wishlist':
+        return WishlistScreen(app: app);
+      case 'profile':
+        return ProfileScreen(app: app);
+      case 'catalog':
+      default:
+        return CatalogScreen(app: app);
+    }
+  }
+
+  Widget _pushedScreen(AppState app, ScreenSpec s) {
+    switch (s.name) {
+      case 'product':
+        return ProductDetailScreen(app: app, productId: s.productId!);
       case 'checkout':
         return CheckoutScreen(app: app);
       case 'payment':
@@ -38,45 +64,53 @@ class ShopShell extends StatelessWidget {
             total: s.total!,
             payMethod: s.payMethod,
             paid: s.paid ?? false);
-      case 'profile':
-        return ProfileScreen(app: app);
       case 'login':
         return LoginScreen(app: app);
       case 'status':
         return OrderStatusScreen(app: app, initialOrderNumber: s.orderNumber);
       case 'notifications':
         return NotificationsScreen(app: app);
-      case 'wallet':
-        return WalletScreen(app: app);
       case 'coupons':
         return CouponsScreen(app: app);
       case 'referrals':
         return ReferralsScreen(app: app);
-      case 'wishlist':
-        return WishlistScreen(app: app);
     }
-    return CatalogScreen(app: app);
+    return const SizedBox.shrink();
   }
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     gLang = app.lang; // keep the global in sync before children read tr()
-    final screenKey = '${app.tab}-${app.stack.length}-${app.screen.name}';
+    _visited.add(app.tab);
+    final tabIndex = _tabOrder.indexOf(app.tab);
+    final pushed = app.stack.length > 1;
 
     return Container(
       color: AppColors.bg,
       child: Stack(
         children: [
           Positioned.fill(
-            child: _ScreenTransition(
-              key: ValueKey(screenKey),
-              motion: app.motion,
-              child: _buildScreen(app),
+            child: IndexedStack(
+              index: tabIndex < 0 ? 0 : tabIndex,
+              sizing: StackFit.expand,
+              children: [
+                for (final t in _tabOrder)
+                  _visited.contains(t) ? _rootScreen(app, t) : const SizedBox.shrink(),
+              ],
             ),
           ),
+          // Tab bar sits beneath the overlay so a popping screen slides over it
+          // and reveals it; at a root the overlay is empty and lets it through.
           if (app.showTabBar)
             Positioned(left: 0, right: 0, bottom: 0, child: _TabBar(app: app)),
+          Positioned.fill(
+            child: _PushedOverlay(
+              motion: app.motion,
+              childKey: '${app.tab}-${app.stack.length}-${app.screen.name}',
+              child: pushed ? _pushedScreen(app, app.screen) : null,
+            ),
+          ),
           Toast(message: app.toastMsg, show: app.toastShow),
         ],
       ),
@@ -84,29 +118,67 @@ class ShopShell extends StatelessWidget {
   }
 }
 
-// ── Per-screen entrance transition (incoming only, like the prototype) ──────
-class _ScreenTransition extends StatefulWidget {
+enum _OverlayMode { enterPush, enterPop, leaving }
+
+/// Renders the current pushed screen (or nothing at a tab root) over the
+/// persistent roots, animating it in on push and out on pop — so returning to
+/// a root reveals the still-alive root beneath rather than rebuilding it.
+class _PushedOverlay extends StatefulWidget {
+  final Widget? child;
+  final String childKey;
   final NavMotion motion;
-  final Widget child;
-  const _ScreenTransition({super.key, required this.motion, required this.child});
+  const _PushedOverlay({required this.child, required this.childKey, required this.motion});
 
   @override
-  State<_ScreenTransition> createState() => _ScreenTransitionState();
+  State<_PushedOverlay> createState() => _PushedOverlayState();
 }
 
-class _ScreenTransitionState extends State<_ScreenTransition> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 320),
-  );
+class _PushedOverlayState extends State<_PushedOverlay> with SingleTickerProviderStateMixin {
+  late final AnimationController _c;
+  Widget? _child;
+  late String _key;
+  _OverlayMode _mode = _OverlayMode.enterPush;
+  int _token = 0;
 
   @override
   void initState() {
     super.initState();
-    if (widget.motion == NavMotion.none) {
-      _c.value = 1;
+    // Created here (not as a lazy `late` field) so dispose() never initializes
+    // it on a deactivated element when build short-circuits at a root.
+    _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 320), value: 1);
+    _child = widget.child;
+    _key = widget.childKey;
+  }
+
+  @override
+  void didUpdateWidget(covariant _PushedOverlay old) {
+    super.didUpdateWidget(old);
+    if (widget.childKey == _key) {
+      // Same screen identity — just refresh its content (e.g. a state change).
+      if (widget.child != null) _child = widget.child;
+      return;
+    }
+    _key = widget.childKey;
+    final token = ++_token;
+    if (widget.child != null) {
+      // Show a pushed screen.
+      setState(() {
+        _child = widget.child;
+        _mode = widget.motion == NavMotion.pop ? _OverlayMode.enterPop : _OverlayMode.enterPush;
+      });
+      if (widget.motion == NavMotion.none) {
+        _c.value = 1;
+      } else {
+        _c.forward(from: 0);
+      }
+    } else if (widget.motion == NavMotion.none) {
+      setState(() => _child = null);
     } else {
-      _c.forward();
+      // Pop to a root: slide the pushed screen out, revealing the live root.
+      _mode = _OverlayMode.leaving;
+      _c.reverse(from: 1).whenComplete(() {
+        if (mounted && token == _token) setState(() => _child = null);
+      });
     }
   }
 
@@ -118,24 +190,26 @@ class _ScreenTransitionState extends State<_ScreenTransition> with SingleTickerP
 
   @override
   Widget build(BuildContext context) {
-    if (widget.motion == NavMotion.none) return widget.child;
+    final child = _child;
+    if (child == null) return const SizedBox.shrink();
     return AnimatedBuilder(
       animation: _c,
-      child: widget.child,
-      builder: (context, child) {
+      child: child,
+      builder: (context, ch) {
         final t = Curves.easeOutCubic.transform(_c.value);
         double dx;
-        double opacity;
-        if (widget.motion == NavMotion.push) {
-          dx = 1 - t; // 100% → 0
-          opacity = 1;
-        } else {
-          dx = -0.3 * (1 - t); // -30% → 0
-          opacity = 0.6 + 0.4 * t;
+        double opacity = 1;
+        switch (_mode) {
+          case _OverlayMode.enterPush:
+          case _OverlayMode.leaving:
+            dx = 1 - t; // push: 100%→0 (forward); pop-to-root: 0→100% (reverse)
+          case _OverlayMode.enterPop:
+            dx = -0.3 * (1 - t); // revealed deeper screen: -30%→0
+            opacity = 0.6 + 0.4 * t;
         }
         return FractionalTranslation(
           translation: Offset(dx, 0),
-          child: Opacity(opacity: opacity, child: child),
+          child: Opacity(opacity: opacity, child: ch),
         );
       },
     );
