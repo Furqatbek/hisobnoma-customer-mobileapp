@@ -50,6 +50,11 @@ The design medium is **HTML/CSS/JS** — these are prototypes, not production co
 - **Wallet QR** (`lib/screens/extras.dart`) shows a real scannable code only when the API
   exposes a customer code + tenant slug; otherwise an honest "tayyorlanmoqda" placeholder.
 
+> **Backend team:** the full, prioritized spec (new endpoints, new fields,
+> security requirements, checklist) lives in
+> [`docs/BACKEND_REQUIREMENTS.md`](docs/BACKEND_REQUIREMENTS.md). The table below
+> is the short version.
+
 ### Backend contract consumed (all optional — UI degrades gracefully when absent)
 
 | API | Purpose |
