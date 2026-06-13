@@ -134,7 +134,15 @@ class _PaymentScreenState extends State<PaymentScreen> with WidgetsBindingObserv
         _check(silent: true);
       });
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (!mounted) return;
+      // Online payment isn't wired up on the server yet (providers not
+      // configured) — degrade to pay-on-delivery instead of a scary error.
+      if (e.code == 'PAYMENT_NOT_CONFIGURED' || e.status == 503) {
+        app.toast(tr('Онлайн тўлов ҳозирча мавжуд эмас. Етказиб берилганда тўлайсиз.'));
+        _finish(paid: false);
+        return;
+      }
+      setState(() => _error = e.message);
     } catch (_) {
       if (mounted) setState(() => _error = tr('Тўлов ҳаволасини очиб бўлмади'));
     } finally {

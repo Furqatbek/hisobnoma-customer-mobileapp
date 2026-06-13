@@ -1,7 +1,11 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/fake_adapter.dart';
 import 'package:hisobnoma_shop/data/api/api_client.dart';
 import 'package:hisobnoma_shop/data/api/api_config.dart';
 import 'package:hisobnoma_shop/data/api/token_store.dart';
@@ -18,6 +22,12 @@ Future<AppState> _app() async {
   SharedPreferences.setMockInitialValues({});
   final prefs = await SharedPreferences.getInstance();
   return AppState(prefs, TokenStore(), ApiClient(TokenStore()));
+}
+
+Future<AppState> _appWith(FutureOr<ResponseBody> Function(RequestOptions) onFetch) async {
+  SharedPreferences.setMockInitialValues({});
+  final prefs = await SharedPreferences.getInstance();
+  return AppState(prefs, TokenStore(), ApiClient(TokenStore(), adapter: FakeAdapter(onFetch)));
 }
 
 Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
@@ -378,6 +388,23 @@ void main() {
           _wrap(PaymentScreen(app: app, orderNumber: 'WO-000001', total: 33000)));
       await tester.tap(find.text('Кейинроқ тўлайман'));
       expect(app.screen.name, 'success'); // origin success → lands on success
+    });
+
+    testWidgets('PAYMENT_NOT_CONFIGURED degrades to pay-on-delivery', (tester) async {
+      final app = await _appWith((o) => o.path.contains('/payment')
+          ? jsonBody({
+              'success': false,
+              'error': {'code': 'PAYMENT_NOT_CONFIGURED'}
+            }, 503)
+          : jsonBody({}, 200));
+      app.setTab('cart');
+      app.push(const ScreenSpec('payment', orderNumber: 'WO-1', total: 1000));
+
+      await tester.pumpWidget(_wrap(PaymentScreen(app: app, orderNumber: 'WO-1', total: 1000)));
+      await tester.tap(find.text('Payme'));
+      await tester.pumpAndSettle();
+      expect(app.screen.name, 'success'); // fell through, not an error screen
+      await tester.pump(const Duration(milliseconds: 1900)); // flush the toast timer
     });
 
     testWidgets('pay later from pay-again (history) pops back', (tester) async {
