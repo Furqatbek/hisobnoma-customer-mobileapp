@@ -322,6 +322,18 @@ void main() {
       expect(app.screen.paid, isNot(true));
     });
 
+    testWidgets('pay later from the success screen returns to success', (tester) async {
+      final app = await _app();
+      app.setTab('cart');
+      app.replace(const ScreenSpec('success', orderNumber: 'WO-000001', total: 33000, payMethod: 'CARD'));
+      app.push(const ScreenSpec('payment', orderNumber: 'WO-000001', total: 33000));
+
+      await tester.pumpWidget(
+          _wrap(PaymentScreen(app: app, orderNumber: 'WO-000001', total: 33000)));
+      await tester.tap(find.text('Кейинроқ тўлайман'));
+      expect(app.screen.name, 'success'); // origin success → lands on success
+    });
+
     testWidgets('pay later from pay-again (history) pops back', (tester) async {
       final app = await _app();
       app.setTab('profile');

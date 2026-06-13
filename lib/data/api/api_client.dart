@@ -28,7 +28,9 @@ class Page<T> {
 /// Thin wrapper over Dio that injects tenant + bearer headers and unwraps the
 /// `{ success, data }` envelope (and `{ content, page }` paging).
 class ApiClient {
-  ApiClient(this._tokens) {
+  /// [adapter] lets tests inject a fake transport (see test/api_client_test.dart)
+  /// without reaching the network.
+  ApiClient(this._tokens, {HttpClientAdapter? adapter}) {
     _dio = Dio(BaseOptions(
       baseUrl: ApiConfig.baseUrl,
       connectTimeout: const Duration(seconds: 15),
@@ -37,6 +39,7 @@ class ApiClient {
       // We validate status ourselves so we can read the error envelope.
       validateStatus: (_) => true,
     ));
+    if (adapter != null) _dio.httpClientAdapter = adapter;
     _dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
         final t = _tokens.current;
