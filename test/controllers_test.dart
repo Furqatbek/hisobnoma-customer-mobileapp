@@ -7,6 +7,7 @@ import 'package:hisobnoma_shop/data/models.dart';
 import 'package:hisobnoma_shop/data/repositories.dart';
 import 'package:hisobnoma_shop/state/cart_controller.dart';
 import 'package:hisobnoma_shop/state/nav_controller.dart';
+import 'package:hisobnoma_shop/state/session_controller.dart';
 
 Product _p(int id) => Product(
       id: id,
@@ -83,6 +84,39 @@ void main() {
 
       make().addToCart(_p(7));
       expect(make().cart[7], 1); // a fresh instance reloads it
+    });
+  });
+
+  group('SessionController', () {
+    SessionController make(SharedPreferences prefs, {void Function(String)? toast}) {
+      final api = ApiClient(TokenStore());
+      return SessionController(
+        prefs: prefs,
+        tokens: TokenStore(),
+        api: api,
+        auth: AuthRepository(api),
+        wishlistApi: WishlistRepository(api),
+        notificationsApi: NotificationRepository(api),
+        deviceTokens: DeviceTokenRepository(api),
+        toast: toast ?? (_) {},
+      );
+    }
+
+    test('toggleWish is a no-op (no toast) when logged out', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      var toasts = 0;
+      final s = make(prefs, toast: (_) => toasts++);
+      expect(s.toggleWish(1), false);
+      expect(s.isWished(1), false);
+      expect(toasts, 0);
+    });
+
+    test('OTP cooldown persists across controller instances', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      make(prefs).startOtpCooldown(60);
+      expect(make(prefs).otpCooldownRemaining, greaterThan(0));
     });
   });
 }
