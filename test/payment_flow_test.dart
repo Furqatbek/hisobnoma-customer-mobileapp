@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:hisobnoma_shop/data/api/api_client.dart';
+import 'package:hisobnoma_shop/data/api/api_config.dart';
 import 'package:hisobnoma_shop/data/api/token_store.dart';
 import 'package:hisobnoma_shop/data/models.dart';
 import 'package:hisobnoma_shop/data/strings.dart';
@@ -164,15 +165,17 @@ void main() {
   });
 
   group('Success screen payment state', () {
-    testWidgets('unpaid card order offers Тўлаш and pushes the payment screen',
+    testWidgets('unpaid card order hides Тўлаш while online payment is disabled',
         (tester) async {
+      // Default build: ONLINE_PAYMENT is off, so card means pay-on-delivery
+      // and the success screen must not offer an online "Тўлаш" that can't work.
+      expect(ApiConfig.onlinePaymentEnabled, false);
       final app = await _app();
       await tester.pumpWidget(_wrap(OrderSuccessScreen(
           app: app, orderNumber: 'WO-000001', total: 33000, payMethod: 'CARD')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Тўлаш'));
-      expect(app.screen.name, 'payment');
-      expect(app.screen.orderNumber, 'WO-000001');
+      expect(find.text('Тўлаш'), findsNothing);
+      expect(find.textContaining('Карта орқали'), findsOneWidget);
     });
 
     testWidgets('paid card order shows the badge and no pay button', (tester) async {

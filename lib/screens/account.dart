@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../data/api/api_client.dart';
+import '../data/api/api_config.dart';
 import '../data/format.dart';
 import '../data/models.dart';
 import '../data/strings.dart';
@@ -382,8 +383,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       padding: const EdgeInsets.only(bottom: 12),
                       child: OrderCard(
                         order: o,
-                        onPay: () => app.push(ScreenSpec('payment',
-                            orderNumber: o.orderNumber, total: o.totalAmount)),
+                        onPay: ApiConfig.onlinePaymentEnabled
+                            ? () => app.push(ScreenSpec('payment',
+                                orderNumber: o.orderNumber, total: o.totalAmount))
+                            : null,
                       ),
                     ),
               ],
@@ -738,8 +741,10 @@ class _OrderStatusScreenState extends State<OrderStatusScreen> {
                     padding: const EdgeInsets.only(top: 6),
                     child: OrderCard(
                       order: _result!,
-                      onPay: () => app.push(ScreenSpec('payment',
-                          orderNumber: _result!.orderNumber, total: _result!.totalAmount)),
+                      onPay: ApiConfig.onlinePaymentEnabled
+                          ? () => app.push(ScreenSpec('payment',
+                              orderNumber: _result!.orderNumber, total: _result!.totalAmount))
+                          : null,
                     ),
                   ),
               ],

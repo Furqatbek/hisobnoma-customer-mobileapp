@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../data/api/api_client.dart';
+import '../data/api/api_config.dart';
 import '../data/format.dart';
 import '../data/models.dart';
 import '../data/strings.dart';
@@ -344,11 +345,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         note: _noteCtrl.text.trim(),
         paymentMethod: _payMethod,
       );
-      if (_payMethod == 'CARD') {
-        // Card orders go through the online payment step first.
+      if (_payMethod == 'CARD' && ApiConfig.onlinePaymentEnabled) {
+        // Online card orders go through the payment step first.
         app.replace(
             ScreenSpec('payment', orderNumber: order.orderNumber, total: order.totalAmount));
       } else {
+        // Cash, or card-on-delivery when online payment isn't enabled.
         app.replace(ScreenSpec('success',
             orderNumber: order.orderNumber,
             total: order.totalAmount,
@@ -421,7 +423,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ? Ic.card(AppColors.accent, 20)
                         : Ic.cash(AppColors.accent, 20),
                     title: tr(e.value.label),
-                    subtitle: tr(e.value.hint),
+                    subtitle: e.key == 'CARD' && ApiConfig.onlinePaymentEnabled
+                        ? tr('Онлайн тўлов: Payme, Click, Uzum')
+                        : tr(e.value.hint),
                     selected: _payMethod == e.key,
                     onTap: () => setState(() => _payMethod = e.key),
                   ),
@@ -641,7 +645,7 @@ class OrderSuccessScreen extends StatelessWidget {
                     textAlign: TextAlign.center, style: ts(size: 14.5, color: AppColors.sec)),
                 const SizedBox(height: 36),
                 // Card order placed but not paid online yet — offer to pay now.
-                if (payMethod == 'CARD' && !paid) ...[
+                if (payMethod == 'CARD' && !paid && ApiConfig.onlinePaymentEnabled) ...[
                   BigButton(
                     ghost: true,
                     onTap: () => app.push(

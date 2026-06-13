@@ -14,6 +14,15 @@ class ApiConfig {
     defaultValue: '1',
   );
 
+  /// Whether online card payment (Payme / Click / Uzum) is actually wired up
+  /// on the backend. While false, choosing "card" means "pay the courier by
+  /// card on delivery" and the online payment screen is skipped entirely —
+  /// showing providers whose checkout call would 404 is worse than not
+  /// offering them. Flip on once `POST /web/orders/{n}/payment` exists:
+  ///   flutter run --dart-define=ONLINE_PAYMENT=true
+  static const bool onlinePaymentEnabled =
+      bool.fromEnvironment('ONLINE_PAYMENT', defaultValue: false);
+
   /// Shop contact details (not exposed by the API — app config).
   static const String shopPhone =
       String.fromEnvironment('SHOP_PHONE', defaultValue: '+998 71 200 00 00');

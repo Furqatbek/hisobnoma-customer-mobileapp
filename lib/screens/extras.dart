@@ -12,80 +12,6 @@ import '../theme/tokens.dart';
 import '../widgets/components.dart';
 import '../widgets/icons.dart';
 
-// ── Deterministic pseudo-QR (programmatic, seeded) ──────────────────────────
-class PseudoQR extends StatelessWidget {
-  final String seed;
-  final double size;
-  const PseudoQR({super.key, this.seed = 'hisobnoma', this.size = 196});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(width: size, height: size, child: CustomPaint(painter: _QRPainter(seed)));
-  }
-}
-
-int _imul(int a, int b) {
-  final aHi = (a >>> 16) & 0xffff;
-  final aLo = a & 0xffff;
-  return ((aLo * b) + (((aHi * b) & 0xffff) << 16)) & 0xffffffff;
-}
-
-class _QRPainter extends CustomPainter {
-  final String seed;
-  _QRPainter(this.seed);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const n = 25;
-    int h = 2166136261;
-    for (var i = 0; i < seed.length; i++) {
-      h ^= seed.codeUnitAt(i);
-      h = _imul(h, 16777619);
-    }
-    double rand() {
-      h ^= (h << 13) & 0xffffffff;
-      h &= 0xffffffff;
-      h ^= h >>> 17;
-      h ^= (h << 5) & 0xffffffff;
-      h &= 0xffffffff;
-      return (h & 0xffffffff) / 4294967295;
-    }
-
-    final m = size.width / n;
-    const dark = Color(0xFF0B0B0C);
-    final fill = Paint()..color = dark;
-    canvas.drawRect(Offset.zero & size, Paint()..color = const Color(0xFFFFFFFF));
-
-    bool inFinder(int x, int y) =>
-        (x < 8 && y < 8) || (x >= n - 8 && y < 8) || (x < 8 && y >= n - 8);
-
-    for (var y = 0; y < n; y++) {
-      for (var x = 0; x < n; x++) {
-        if (inFinder(x, y)) continue;
-        if (rand() < 0.46) {
-          canvas.drawRect(Rect.fromLTWH(x * m, y * m, m * 0.92, m * 0.92), fill);
-        }
-      }
-    }
-
-    void finder(double fx, double fy) {
-      final stroke = Paint()
-        ..color = dark
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = m;
-      canvas.drawRect(Rect.fromLTWH(fx * m, fy * m, 7 * m, 7 * m), stroke);
-      canvas.drawRect(Rect.fromLTWH((fx + 2) * m, (fy + 2) * m, 3 * m, 3 * m), fill);
-    }
-
-    finder(0.5, 0.5);
-    finder(n - 7.5, 0.5);
-    finder(0.5, n - 7.5);
-  }
-
-  @override
-  bool shouldRepaint(covariant _QRPainter oldDelegate) => oldDelegate.seed != seed;
-}
-
 // Shared login-required prompt for /me screens.
 Widget loginPromptColumn(AppState app, {required Widget icon, required String title, required String body}) {
   return Expanded(
@@ -380,23 +306,45 @@ class _WalletScreenState extends State<WalletScreen> {
     }
   }
 
-  /// Real scannable QR encoding the loyalty deep link
-  /// `$base/$slug/$customerCode`. Falls back to the decorative placeholder
-  /// until the API exposes `customerCode` (and a slug) on /web/me.
-  Widget _walletQr() {
+  /// A scannable wallet QR is only possible once the API exposes a customer
+  /// code and a tenant slug. Until then we say so honestly rather than render
+  /// a decorative pattern that a cashier cannot scan.
+  bool get _hasWalletQr {
     final code = app.user?.customerCode ?? '';
     final slug = (app.user?.tenantSlug.isNotEmpty ?? false) ? app.user!.tenantSlug : ApiConfig.tenantSlug;
-    if (code.isNotEmpty && slug.isNotEmpty && ApiConfig.walletQrBase.isNotEmpty) {
-      return QrImageView(
-        data: '${ApiConfig.walletQrBase}/$slug/$code',
-        version: QrVersions.auto,
-        size: 196,
-        backgroundColor: Colors.white,
-        eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Color(0xFF0B0B0C)),
-        dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Color(0xFF0B0B0C)),
-      );
-    }
-    return PseudoQR(seed: 'wallet-${app.user!.phone}', size: 196);
+    return code.isNotEmpty && slug.isNotEmpty && ApiConfig.walletQrBase.isNotEmpty;
+  }
+
+  /// Real scannable QR encoding the loyalty deep link `$base/$slug/$code`.
+  Widget _walletQr() {
+    final slug = app.user!.tenantSlug.isNotEmpty ? app.user!.tenantSlug : ApiConfig.tenantSlug;
+    return QrImageView(
+      data: '${ApiConfig.walletQrBase}/$slug/${app.user!.customerCode}',
+      version: QrVersions.auto,
+      size: 196,
+      backgroundColor: Colors.white,
+      eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: Color(0xFF0B0B0C)),
+      dataModuleStyle: const QrDataModuleStyle(dataModuleShape: QrDataModuleShape.square, color: Color(0xFF0B0B0C)),
+    );
+  }
+
+  /// Honest placeholder shown when no scannable code is available yet.
+  Widget _qrUnavailable() {
+    return Container(
+      width: 196,
+      height: 196,
+      decoration: BoxDecoration(color: AppColors.fill, borderRadius: BorderRadius.circular(AppRadii.card)),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Ic.qr(AppColors.ter, 44),
+            const SizedBox(height: 10),
+            Text(tr('QR код тайёрланмоқда'), style: ts(size: 14, color: AppColors.sec, letterSpacing: -0.2)),
+          ],
+        ),
+      ),
+    );
   }
 
   /// "Scan at checkout" help sheet — explains the cashier flow.
@@ -563,37 +511,46 @@ class _WalletScreenState extends State<WalletScreen> {
                 border: Border.all(color: AppColors.sep),
                 borderRadius: BorderRadius.circular(AppRadii.card),
               ),
-              child: Column(
-                children: [
-                  _walletQr(),
-                  const SizedBox(height: 12),
-                  Text(
-                      app.user!.customerCode.isNotEmpty
-                          ? app.user!.customerCode
-                          : formatPhone(app.user!.phone),
-                      style: TextStyle(fontFamily: kMonoFamily, fontSize: 13.5, color: AppColors.sec, letterSpacing: 0.5)),
-                  const SizedBox(height: 12),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 280),
-                    child: Text(tr('Кассада QR кодни кўрсатинг — кешбек ҳамёнингизга ўтказилади'),
-                        textAlign: TextAlign.center, style: ts(size: 14, color: AppColors.sec, letterSpacing: -0.15, height: 1.45)),
-                  ),
-                  const SizedBox(height: 6),
-                  ShopTextButton(
-                    fontSize: 14,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    onTap: () => _showScanHelp(context),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+              child: _hasWalletQr
+                  ? Column(
                       children: [
-                        const Icon(Icons.help_outline_rounded, size: 16, color: AppColors.accent),
-                        const SizedBox(width: 6),
-                        Text(tr2('Қандай ишлайди?', 'Как это работает?')),
+                        _walletQr(),
+                        const SizedBox(height: 12),
+                        Text(app.user!.customerCode,
+                            style: TextStyle(fontFamily: kMonoFamily, fontSize: 13.5, color: AppColors.sec, letterSpacing: 0.5)),
+                        const SizedBox(height: 12),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 280),
+                          child: Text(tr('Кассада QR кодни кўрсатинг — кешбек ҳамёнингизга ўтказилади'),
+                              textAlign: TextAlign.center, style: ts(size: 14, color: AppColors.sec, letterSpacing: -0.15, height: 1.45)),
+                        ),
+                        const SizedBox(height: 6),
+                        ShopTextButton(
+                          fontSize: 14,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          onTap: () => _showScanHelp(context),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.help_outline_rounded, size: 16, color: AppColors.accent),
+                              const SizedBox(width: 6),
+                              Text(tr2('Қандай ишлайди?', 'Как это работает?')),
+                            ],
+                          ),
+                        ),
+                      ],
+                    )
+                  : Column(
+                      children: [
+                        _qrUnavailable(),
+                        const SizedBox(height: 12),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 280),
+                          child: Text(tr('Кешбек баланси ҳисобингизда сақланади. QR код тез орада фаоллашади.'),
+                              textAlign: TextAlign.center, style: ts(size: 14, color: AppColors.sec, letterSpacing: -0.15, height: 1.45)),
+                        ),
                       ],
                     ),
-                  ),
-                ],
-              ),
             ),
           ),
           Padding(
