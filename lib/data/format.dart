@@ -43,6 +43,26 @@ String normalizePhoneInput(String raw) {
   return v.length > 9 ? v.substring(0, 9) : v;
 }
 
+/// Reformats [input] as a phone number and returns the formatted text together
+/// with a caret [offset] that keeps the same number of digits to its left as
+/// [cursor] had — so editing the middle of a number no longer jolts the caret
+/// to the end.
+({String text, int offset}) formatPhoneWithCaret(String input, int cursor) {
+  final pos = cursor < 0 ? input.length : cursor.clamp(0, input.length);
+  final digitsLeft = input.substring(0, pos).replaceAll(RegExp(r'\D'), '').length;
+  final text = formatPhone(normalizePhoneInput(input));
+  var seen = 0;
+  var offset = text.length;
+  for (var i = 0; i < text.length; i++) {
+    if (seen >= digitsLeft) {
+      offset = i;
+      break;
+    }
+    if (RegExp(r'\d').hasMatch(text[i])) seen++;
+  }
+  return (text: text, offset: offset);
+}
+
 /// Local 9-digit part → API E.164 form "+998901234567".
 String phoneToE164(String local9) => '+998${local9.replaceAll(RegExp(r'\D'), '')}';
 
@@ -56,11 +76,13 @@ String phoneFromE164(String e164) {
 const _uzMonths = ['', 'янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 const _ruMonths = ['', 'янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 
-/// ISO timestamp → short localized date like "8 июн".
+/// ISO timestamp → short localized date like "8 июн" (adds the year for dates
+/// outside the current year, so "8 июн 2025" isn't mistaken for this year).
 String formatDate(String iso) {
   final dt = DateTime.tryParse(iso);
   if (dt == null) return iso;
   final l = dt.toLocal();
   final months = gLang == 'ru' ? _ruMonths : _uzMonths;
-  return '${l.day} ${months[l.month]}';
+  final base = '${l.day} ${months[l.month]}';
+  return l.year == DateTime.now().year ? base : '$base ${l.year}';
 }

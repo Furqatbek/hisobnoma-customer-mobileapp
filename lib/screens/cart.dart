@@ -235,6 +235,9 @@ class _CartScreenState extends State<CartScreen> {
     final qty = app.cart[id]!;
     if (p == null) return const SizedBox.shrink();
     return SwipeRow(
+      // Key by product id so deleting one row can't migrate another row's
+      // open-swipe state onto the wrong product.
+      key: ValueKey(id),
       onDelete: () => app.setQty(id, 0),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -323,6 +326,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   // Cashback / loyalty points.
   LoyaltyData? _loyalty;
   bool _usePoints = false;
+
+  // For scrolling the first invalid field into view on submit.
+  final _scrollCtrl = ScrollController();
+  final _nameKey = GlobalKey();
+  final _phoneKey = GlobalKey();
+  final _regionKey = GlobalKey();
+  final _addressKey = GlobalKey();
 
   AppState get app => widget.app;
 
@@ -439,6 +449,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _addressCtrl.dispose();
     _noteCtrl.dispose();
     _couponCtrl.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
@@ -452,7 +463,24 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _addressErr = _addressCtrl.text.trim().isEmpty ? tr('Манзилни киритинг') : null;
       _submitError = null;
     });
-    if (_nameErr != null || _phoneErr || _regionErr || _villageErr || _addressErr != null) return;
+    // Bring the first invalid field into view — submit sits far below them.
+    final errKey = _nameErr != null
+        ? _nameKey
+        : _phoneErr
+            ? _phoneKey
+            : (_regionErr || _villageErr)
+                ? _regionKey
+                : _addressErr != null
+                    ? _addressKey
+                    : null;
+    if (errKey != null) {
+      final ctx = errKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(ctx,
+            duration: const Duration(milliseconds: 300), alignment: 0.15, curve: Curves.easeOut);
+      }
+      return;
+    }
     setState(() => _submitting = true);
     try {
       final clientSum =
@@ -512,13 +540,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           NavHeader(title: tr('Буюртма'), onBack: app.pop),
           Expanded(
             child: ListView(
+              controller: _scrollCtrl,
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
               children: [
                 SectionHeader(tr('Контакт')),
                 const SizedBox(height: 12),
-                Field(error: _nameErr, child: ShopTextField(controller: _nameCtrl, hint: tr('Исмингиз'), error: _nameErr != null)),
+                Field(key: _nameKey, error: _nameErr, child: ShopTextField(controller: _nameCtrl, hint: tr('Исмингиз'), error: _nameErr != null)),
                 const SizedBox(height: 12),
                 Field(
+                  key: _phoneKey,
                   error: _phoneErr ? tr('Телефон рақам нотўғри') : null,
                   child: PhoneField(initialRaw: _phone, error: _phoneErr, onChanged: (v) => _phone = v),
                 ),
@@ -543,6 +573,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   )
                 else
                   Field(
+                    key: _regionKey,
                     error: _regionErr ? tr('Туманни танланг') : null,
                     child: _dropdown<int>(
                       value: _regionId,
@@ -576,6 +607,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ],
                 const SizedBox(height: 12),
                 Field(
+                  key: _addressKey,
                   error: _addressErr,
                   child: ShopTextField(
                     controller: _addressCtrl,

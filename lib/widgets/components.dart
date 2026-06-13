@@ -603,13 +603,12 @@ class _PhoneFieldState extends State<PhoneField> {
   }
 
   void _onChanged(String v) {
-    final raw = normalizePhoneInput(v);
-    final formatted = formatPhone(raw);
+    final r = formatPhoneWithCaret(v, _ctrl.selection.baseOffset);
     _ctrl.value = TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
+      text: r.text,
+      selection: TextSelection.collapsed(offset: r.offset),
     );
-    widget.onChanged(raw);
+    widget.onChanged(normalizePhoneInput(v));
   }
 
   @override

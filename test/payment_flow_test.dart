@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:hisobnoma_shop/data/api/api_client.dart';
 import 'package:hisobnoma_shop/data/api/api_config.dart';
 import 'package:hisobnoma_shop/data/api/token_store.dart';
+import 'package:hisobnoma_shop/data/format.dart';
 import 'package:hisobnoma_shop/data/models.dart';
 import 'package:hisobnoma_shop/data/strings.dart';
 import 'package:hisobnoma_shop/screens/account.dart';
@@ -180,6 +181,30 @@ void main() {
     test('disabled yields zero', () => expect(ld(balance: 100000, enabled: false).maxRedeemable(40000), 0));
     test('floored to a whole sum',
         () => expect(ld(balance: 1234.9, pct: 100).maxRedeemable(100000), 1234));
+  });
+
+  group('Formatting (#18/#23)', () {
+    test('phone caret keeps digit position (no jump to end)', () {
+      // Caret after "12" in the local part of "+998 90 123 45 67".
+      const input = '+998 90 123 45 67';
+      final caret = input.indexOf('2', input.indexOf('123')) + 1; // just after "12"
+      final r = formatPhoneWithCaret(input, caret);
+      expect(r.text, '+998 90 123 45 67');
+      // Offset should land right after "12" (5 digits incl. 998 prefix → "998901..2").
+      expect(r.text.substring(0, r.offset).replaceAll(RegExp(r'\D'), '').length, 7);
+      expect(r.offset, lessThan(r.text.length)); // not forced to the end
+    });
+
+    test('phone caret at end stays at end', () {
+      final r = formatPhoneWithCaret('+998 90 123 45 6', 16);
+      expect(r.offset, r.text.length);
+    });
+
+    test('formatDate adds the year only outside the current year', () {
+      final thisYear = DateTime.now();
+      expect(formatDate('${thisYear.year}-06-08T00:00:00').contains('${thisYear.year}'), false);
+      expect(formatDate('2020-06-08T00:00:00'), contains('2020'));
+    });
   });
 
   group('OTP cooldown (#13)', () {
