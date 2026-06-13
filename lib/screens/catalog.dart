@@ -774,7 +774,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               ),
                             ),
                             const SizedBox(width: 12),
-                            ShopStepper(qty: qty, onChange: (n) => app.setQty(product.id, n)),
+                            ShopStepper(qty: qty, step: product.cartStep, onChange: (n) => app.setQty(product.id, n)),
                           ],
                         ),
                     ],

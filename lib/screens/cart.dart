@@ -265,7 +265,7 @@ class _CartScreenState extends State<CartScreen> {
                     const StockBadge(inStock: false, small: true),
                   ],
                   const SizedBox(height: 7),
-                  ShopStepper(compact: true, qty: qty, onChange: (n) => app.setQty(id, n)),
+                  ShopStepper(compact: true, qty: qty, step: p.cartStep, onChange: (n) => app.setQty(id, n)),
                 ],
               ),
             ),
@@ -352,7 +352,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _loadPricing() async {
     try {
-      final p = await app.cartApi.price(Map<int, int>.from(app.cart));
+      final p = await app.cartApi.price(Map<int, num>.from(app.cart));
       if (mounted) setState(() => _pricing = p);
     } catch (_) {/* fall back to the client-side sum */}
   }
@@ -373,7 +373,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _couponErr = null;
     });
     try {
-      final discount = await app.cartApi.validateCoupon(code, Map<int, int>.from(app.cart));
+      final discount = await app.cartApi.validateCoupon(code, Map<int, num>.from(app.cart));
       if (!mounted) return;
       setState(() {
         _couponBusy = false;

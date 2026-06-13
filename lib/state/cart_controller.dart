@@ -28,9 +28,18 @@ class CartController extends ChangeNotifier {
   final CatalogRepository _catalog;
   final OrderRepository _orders;
 
-  final Map<int, int> cart; // catalogItemId -> qty
+  final Map<int, num> cart; // catalogItemId -> qty (may be fractional)
   final Map<int, Product> productCache = {};
-  int get cartCount => cart.values.fold(0, (s, q) => s + q);
+
+  /// Badge count: whole units summed, with each fractional (by-weight) line
+  /// counted as one item so the badge stays a sensible integer.
+  int get cartCount {
+    num total = 0;
+    cart.forEach((id, qty) {
+      total += (productCache[id]?.fractional ?? false) ? 1 : qty;
+    });
+    return total.round();
+  }
 
   /// Bumped on add-to-cart so the tab badge can bounce.
   int bounceToken = 0;
@@ -48,15 +57,15 @@ class CartController extends ChangeNotifier {
   String payMethod = 'CASH';
 
   // ── persistence ────────────────────────────────────────────
-  static Map<int, int> _loadCart(SharedPreferences prefs) {
+  static Map<int, num> _loadCart(SharedPreferences prefs) {
     try {
       final raw = prefs.getString(_cartKey);
       if (raw == null) return {};
       final obj = jsonDecode(raw) as Map<String, dynamic>;
-      final clean = <int, int>{};
+      final clean = <int, num>{};
       obj.forEach((k, v) {
         final id = int.tryParse(k);
-        final qty = (v as num).toInt();
+        final qty = v as num; // may be fractional (e.g. 0.5 kg)
         if (id != null && qty > 0) clean[id] = qty;
       });
       return clean;
@@ -114,16 +123,20 @@ class CartController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Rounds to 0.001 so repeated fractional steps don't drift (0.1*3 == 0.3).
+  static num _tidy(num n) => (n * 1000).round() / 1000;
+
   // ── cart mutations ─────────────────────────────────────────
   void addToCart(Product product) {
     cacheProduct(product);
-    cart[product.id] = (cart[product.id] ?? 0) + 1;
+    final next = (cart[product.id] ?? 0) + product.cartStep;
+    cart[product.id] = product.fractional ? _tidy(next) : next;
     bounceToken++;
     _saveCart();
     notifyListeners();
   }
 
-  void setQty(int id, int qty) {
+  void setQty(int id, num qty) {
     if (qty <= 0) {
       cart.remove(id);
     } else {
@@ -155,7 +168,7 @@ class CartController extends ChangeNotifier {
       couponCode: couponCode,
       pointsToSpend: pointsToSpend,
       paymentMethod: paymentMethod,
-      lines: Map<int, int>.from(cart),
+      lines: Map<int, num>.from(cart),
     );
     lastOrderPhone = local9;
     _prefs.setString(_lastPhoneKey, local9);

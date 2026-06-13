@@ -442,21 +442,31 @@ class OptionCard extends StatelessWidget {
 
 // ── Quantity stepper ────────────────────────────────────────────────────────
 class ShopStepper extends StatelessWidget {
-  final int qty;
-  final ValueChanged<int> onChange;
+  final num qty;
+  final ValueChanged<num> onChange;
+
+  /// Increment per tap — 1 for whole units, the product's step (e.g. 0.5) for
+  /// items sold by weight.
+  final num step;
   final bool compact;
-  const ShopStepper({super.key, required this.qty, required this.onChange, this.compact = false});
+  const ShopStepper(
+      {super.key, required this.qty, required this.onChange, this.step = 1, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
     final h = compact ? 30.0 : 38.0;
-    Widget btn(String label, int delta, String semLabel) => Semantics(
+    num delta(int sign) {
+      final next = qty + sign * step;
+      return step == 1 ? next : (next * 1000).round() / 1000; // avoid float drift
+    }
+
+    Widget btn(String label, int sign, String semLabel) => Semantics(
           button: true,
           label: semLabel,
           excludeSemantics: true, // the bare "+/−" glyph would read poorly
-          onTap: () => onChange(qty + delta), // exclude drops the child action
+          onTap: () => onChange(delta(sign)), // exclude drops the child action
           child: GestureDetector(
-            onTap: () => onChange(qty + delta),
+            onTap: () => onChange(delta(sign)),
             behavior: HitTestBehavior.opaque,
             child: SizedBox(
               width: h + 4,

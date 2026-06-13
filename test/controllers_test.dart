@@ -85,6 +85,39 @@ void main() {
       make().addToCart(_p(7));
       expect(make().cart[7], 1); // a fresh instance reloads it
     });
+
+    test('fractional product steps by its step and counts as one item', () async {
+      final c = await _cart();
+      const meat = Product(
+        id: 5,
+        name: 'Гўшт',
+        shortDescription: '',
+        description: '',
+        basePrice: 80000,
+        categoryId: 1,
+        categoryName: '',
+        unitName: 'кг',
+        inStock: true,
+        fractional: true,
+        step: 0.5,
+      );
+      c.addToCart(meat);
+      expect(c.cart[5], 0.5);
+      c.addToCart(meat);
+      expect(c.cart[5], 1.0);
+      expect(c.cartCount, 1); // a by-weight line counts as one item
+      c.setQty(5, 0);
+      expect(c.cart.containsKey(5), false);
+    });
+
+    test('Product parses fractional + step (defaults to whole units)', () {
+      final f = Product.fromJson({'id': 1, 'name': 'x', 'fractional': true, 'step': 0.25});
+      expect(f.fractional, true);
+      expect(f.cartStep, 0.25);
+      final w = Product.fromJson({'id': 2, 'name': 'y'});
+      expect(w.fractional, false);
+      expect(w.cartStep, 1);
+    });
   });
 
   group('SessionController', () {

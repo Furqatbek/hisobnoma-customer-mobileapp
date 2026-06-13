@@ -46,7 +46,7 @@ class CartRepository {
   CartRepository(this._c);
   final ApiClient _c;
 
-  Future<CartPricing> price(Map<int, int> lines) async {
+  Future<CartPricing> price(Map<int, num> lines) async {
     final data = await _c.postData('/web/cart/price', body: {
       'lines': lines.entries.map((e) => {'catalogItemId': e.key, 'quantity': e.value}).toList(),
     });
@@ -54,7 +54,7 @@ class CartRepository {
   }
 
   /// Returns the discount if valid, or null if the code is rejected.
-  Future<double?> validateCoupon(String code, Map<int, int> lines) async {
+  Future<double?> validateCoupon(String code, Map<int, num> lines) async {
     final data = await _c.postData('/web/cart/validate-coupon', body: {
       'code': code,
       'lines': lines.entries.map((e) => {'catalogItemId': e.key, 'quantity': e.value}).toList(),
@@ -77,7 +77,7 @@ class OrderRepository {
     String? couponCode,
     int? pointsToSpend,
     String? paymentMethod,
-    required Map<int, int> lines,
+    required Map<int, num> lines,
   }) async {
     final data = await _c.postData('/web/orders', body: {
       'customerName': customerName,

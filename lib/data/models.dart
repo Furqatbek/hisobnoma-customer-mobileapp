@@ -30,6 +30,11 @@ class Product {
   final String? brandName;
   final String unitName;
   final bool inStock;
+
+  /// Sold by a divisible unit (e.g. weight) — the cart then steps by [step]
+  /// rather than whole units.
+  final bool fractional;
+  final double step;
   final List<String> imageUrls; // absolute, resolved
 
   const Product({
@@ -45,6 +50,8 @@ class Product {
     this.brandName,
     required this.unitName,
     required this.inStock,
+    this.fractional = false,
+    this.step = 1,
     this.imageUrls = const [],
   });
 
@@ -53,6 +60,9 @@ class Product {
 
   /// Struck-through original price when discounted.
   double? get oldPrice => salePrice != null ? basePrice : null;
+
+  /// Quantity increment for the cart (the divisible step, else whole units).
+  num get cartStep => fractional && step > 0 ? step : 1;
 
   String? get imageUrl => imageUrls.isNotEmpty ? imageUrls.first : null;
 
@@ -82,6 +92,8 @@ class Product {
       brandName: j['brandName'] as String?,
       unitName: (j['unitName'] ?? '') as String,
       inStock: j['inStock'] == true,
+      fractional: j['fractional'] == true,
+      step: (j['step'] is num && (j['step'] as num) > 0) ? _d(j['step']) : 1,
       imageUrls: imgs,
     );
   }

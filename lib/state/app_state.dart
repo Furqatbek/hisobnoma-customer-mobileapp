@@ -103,7 +103,7 @@ class AppState extends ChangeNotifier {
   void resetCartStack() => _nav.resetCartStack();
 
   // ── cart + orders (delegates to CartController) ────────────
-  Map<int, int> get cart => _cart.cart;
+  Map<int, num> get cart => _cart.cart;
   Map<int, Product> get productCache => _cart.productCache;
   int get cartCount => _cart.cartCount;
   int get bounceToken => _cart.bounceToken;
@@ -113,7 +113,7 @@ class AppState extends ChangeNotifier {
   String get payMethod => _cart.payMethod;
   void cacheProduct(Product p) => _cart.cacheProduct(p);
   void addToCart(Product product) => _cart.addToCart(product);
-  void setQty(int id, int qty) => _cart.setQty(id, qty);
+  void setQty(int id, num qty) => _cart.setQty(id, qty);
   Future<void> refreshCartProducts() => _cart.refreshCartProducts();
   void markLocalOrderPaid(String orderNumber) => _cart.markLocalOrderPaid(orderNumber);
   Future<Order> placeOrder({
