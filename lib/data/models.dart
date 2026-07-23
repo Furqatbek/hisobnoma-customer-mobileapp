@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import 'api/api_config.dart';
+import 'format.dart';
 
 double _d(dynamic v) => (v as num?)?.toDouble() ?? 0;
 int _i(dynamic v) => (v as num?)?.toInt() ?? 0;
@@ -152,6 +153,9 @@ class Order {
   /// PAID | PENDING | NONE | FAILED | CANCELLED | REFUNDED; empty when the
   /// API doesn't expose it — then no payment state is shown at all.
   final String paymentStatus;
+
+  /// Free-text delivery address echoed back by the API (may be empty).
+  final String address;
   final String createdAt; // ISO 8601
   final List<OrderLine> lines;
 
@@ -166,6 +170,7 @@ class Order {
     required this.totalAmount,
     this.paymentMethod = '',
     this.paymentStatus = '',
+    this.address = '',
     required this.createdAt,
     required this.lines,
   });
@@ -192,6 +197,7 @@ class Order {
         totalAmount: _d(j['totalAmount']),
         paymentMethod: ((j['paymentMethod'] ?? '') as String).toUpperCase(),
         paymentStatus: ((j['paymentStatus'] ?? '') as String).toUpperCase(),
+        address: (j['address'] ?? '') as String,
         createdAt: (j['createdAt'] ?? '') as String,
         lines: ((j['lines'] as List?) ?? [])
             .map((e) => OrderLine.fromJson(e as Map<String, dynamic>))
@@ -386,7 +392,9 @@ class ShopUser {
   });
 
   factory ShopUser.fromJson(Map<String, dynamic> j) => ShopUser(
-        phone: (j['phone'] ?? '') as String,
+        // The API returns the phone in E.164-ish form without the '+'
+        // (e.g. "998901234567"); the app works with the local 9 digits.
+        phone: phoneFromE164((j['phone'] ?? '') as String),
         name: (j['name'] ?? '') as String,
         customerCode: (j['customerCode'] ?? '') as String,
         tenantSlug: (j['tenantSlug'] ?? '') as String,

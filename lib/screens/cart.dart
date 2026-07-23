@@ -344,7 +344,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _noteCtrl = TextEditingController();
     _couponCtrl = TextEditingController();
     _phone = app.user?.phone ?? '';
-    _payMethod = app.payMethod;
+    // The backend is cash-on-delivery only until online payment is enabled —
+    // it ignores any other method, so don't offer (or send) one.
+    _payMethod = ApiConfig.onlinePaymentEnabled ? app.payMethod : 'CASH';
     _loadRegions();
     _loadPricing();
     if (app.isLoggedIn) _loadLoyalty();
@@ -618,22 +620,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     },
                   ),
                 ),
-                const SizedBox(height: 24),
-                SectionHeader(tr('Тўлов усули')),
-                const SizedBox(height: 12),
-                for (final (i, e) in paymentMethods.entries.indexed) ...[
-                  if (i > 0) const SizedBox(height: 10),
-                  OptionCard(
-                    icon: e.key == 'CARD'
-                        ? Ic.card(AppColors.accent, 20)
-                        : Ic.cash(AppColors.accent, 20),
-                    title: tr(e.value.label),
-                    subtitle: e.key == 'CARD' && ApiConfig.onlinePaymentEnabled
-                        ? tr('Онлайн тўлов: Payme, Click, Uzum')
-                        : tr(e.value.hint),
-                    selected: _payMethod == e.key,
-                    onTap: () => setState(() => _payMethod = e.key),
-                  ),
+                // Method choice only exists once online payment is live; the
+                // cash-only backend ignores the field (doc: MOBILE_SHOP_API.md).
+                if (ApiConfig.onlinePaymentEnabled) ...[
+                  const SizedBox(height: 24),
+                  SectionHeader(tr('Тўлов усули')),
+                  const SizedBox(height: 12),
+                  for (final (i, e) in paymentMethods.entries.indexed) ...[
+                    if (i > 0) const SizedBox(height: 10),
+                    OptionCard(
+                      icon: e.key == 'CARD'
+                          ? Ic.card(AppColors.accent, 20)
+                          : Ic.cash(AppColors.accent, 20),
+                      title: tr(e.value.label),
+                      subtitle: e.key == 'CARD'
+                          ? tr('Онлайн тўлов: Payme, Click, Uzum')
+                          : tr(e.value.hint),
+                      selected: _payMethod == e.key,
+                      onTap: () => setState(() => _payMethod = e.key),
+                    ),
+                  ],
                 ],
                 const SizedBox(height: 24),
                 SectionHeader(tr('Купон')),

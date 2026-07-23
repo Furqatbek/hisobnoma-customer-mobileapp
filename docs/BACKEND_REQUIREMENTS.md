@@ -13,9 +13,29 @@ implemented for the corresponding features to actually work.
 
 ## Status — ✅ implemented on the backend
 
-The backend team reports **all of §1–§7 implemented** (authoritative API docs:
-`docs/API.md` + Postman collection in the backend repo). The client is aligned.
-Notes from the rollout:
+The backend team reports **all of §1–§7 implemented**. The authoritative contract
+is **`docs/api/MOBILE_SHOP_API.md`** in the backend repo
+(`Furqatbek/hisobnoma`, branch `claude/auto-generate-customer-code-Qj6Eh`); the
+client has been reconciled against it line-by-line. Alignment notes:
+
+- **Cash-only enforcement:** the backend creates every order `CASH`/`NONE` and
+  *ignores* any `paymentMethod` sent. The client therefore shows **no payment
+  selector** while `ONLINE_PAYMENT` is off (it would have recorded "card" picks
+  as cash); the selector returns when the flag is flipped.
+- **Error body:** the documented shape nests the message —
+  `{success:false, error:{code, message}}`. The client reads `error.message`
+  (with top-level `message` and status-based fallbacks still supported).
+- **PageResponse:** `{success, data:{content, page:{number,size,totalElements,
+  totalPages}}}` — the client unwraps the `data` envelope (bare `{content,page}`
+  also still parses) and derives `last` (the block has none).
+- **`/me` phone format:** returned without `+` (e.g. `"998901234567"`); the
+  client normalizes to the local 9 digits on parse (fixes wrong-number display
+  and payment-auth phone).
+- **Order DTO `address`** is echoed back and now shown on order cards.
+- Rate limits honoured client-side: one `/cart/price` call per checkout open,
+  60s OTP resend throttle (server caps are authoritative).
+
+Earlier rollout notes:
 
 - **§1 payment endpoints exist but providers aren't live yet** in staging:
   `POST /web/orders/{n}/payment` returns **`503 PAYMENT_NOT_CONFIGURED`**. The

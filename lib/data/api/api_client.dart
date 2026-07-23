@@ -98,14 +98,20 @@ class ApiClient {
     }
     if (status >= 200 && status < 300) return body;
     // Prefer a user-facing message from the API; otherwise a friendly fallback
-    // by status — never a raw "Хатолик (code)".
+    // by status — never a raw "Хатолик (code)". The documented error body nests
+    // the message inside `error` ({success, error: {code, message}}); a
+    // top-level `message` is also accepted.
     String? code;
     String? serverMsg;
     if (body is Map) {
       final m = body['message'];
       if (m is String && m.trim().isNotEmpty) serverMsg = m.trim();
       final err = body['error'];
-      if (err is Map && err['code'] is String) code = err['code'] as String;
+      if (err is Map) {
+        if (err['code'] is String) code = err['code'] as String;
+        final em = err['message'];
+        if (serverMsg == null && em is String && em.trim().isNotEmpty) serverMsg = em.trim();
+      }
     }
     throw ApiException(serverMsg ?? _statusMessage(status), code: code, status: status);
   }
@@ -155,16 +161,22 @@ class ApiClient {
     Map<String, dynamic>? query,
   }) async {
     try {
-      final body = _check(await _dio.get(path, queryParameters: query));
+      final root = _check(await _dio.get(path, queryParameters: query));
+      // PageResponse nests {content, page} inside `data`
+      // ({success, data: {content, page}}); a bare {content, page} also works.
+      final body = (root is Map && root['data'] is Map) ? root['data'] as Map : root;
       final content = (body['content'] as List? ?? [])
           .map((e) => parse(e as Map<String, dynamic>))
           .toList();
       final pg = (body['page'] as Map?) ?? const {};
+      final number = (pg['number'] as num?)?.toInt() ?? 0;
+      final totalPages = (pg['totalPages'] as num?)?.toInt() ?? 1;
       return Page<T>(
         content: content,
-        number: (pg['number'] as num?)?.toInt() ?? 0,
-        totalPages: (pg['totalPages'] as num?)?.toInt() ?? 1,
-        last: pg['last'] == true,
+        number: number,
+        totalPages: totalPages,
+        // The documented page block has no `last` — derive it.
+        last: pg['last'] == true || number >= totalPages - 1,
       );
     } catch (e) {
       throw _mapError(e);

@@ -31,17 +31,20 @@ The design medium is **HTML/CSS/JS** — these are prototypes, not production co
 ## Payment & checkout flow (cash / card)
 
 - **Checkout** (`lib/screens/cart.dart`) — collects name, phone, region/village **and a
-  required address**; offers a «Тўлов усули» (CASH / CARD); prices the cart via the server
-  (`/web/cart/price`) so shown promotions are real; supports a **coupon** field
-  (`/web/cart/validate-coupon`) and **cashback** redemption (`/web/me/loyalty`). The order is
-  sent with `paymentMethod`, `address`, `couponCode` and `pointsToSpend`. Out-of-stock cart
-  items are re-checked on open and block ordering.
+  required address**; prices the cart via the server (`/web/cart/price`) so shown promotions
+  are real; supports a **coupon** field (`/web/cart/validate-coupon`) and **cashback**
+  redemption (`/web/me/loyalty`). The order is sent with `paymentMethod`, `address`,
+  `couponCode` and `pointsToSpend`. Out-of-stock cart items are re-checked on open and block
+  ordering.
 - **Online payment** is gated by `ApiConfig.onlinePaymentEnabled`
-  (`--dart-define=ONLINE_PAYMENT=true`). While off, CARD = pay-the-courier-by-card and the app
-  skips straight to success. While on, card orders go to **the payment screen**
+  (`--dart-define=ONLINE_PAYMENT=true`). While off — the backend is **cash-on-delivery only**
+  and ignores `paymentMethod` (see `MOBILE_SHOP_API.md`) — checkout shows **no method
+  selector** and orders go straight to success as CASH. While on, a «Тўлов усули» selector
+  appears (CASH / online CARD) and card orders go to **the payment screen**
   (`lib/screens/payment.dart`): provider list (Payme / Click / Uzum Bank), opens the checkout
   URL externally, then polls status (every 5 s for ~3 min, on app resume, manual button).
-  «Кейинроқ тўлайман» always falls through so a missing backend never blocks ordering.
+  «Кейинроқ тўлайман» always falls through, and a `503 PAYMENT_NOT_CONFIGURED` degrades to
+  pay-on-delivery, so a missing provider never blocks ordering.
 - **Order recovery** — every placed order is remembered locally (`LocalOrderRef`), so a guest
   can find/track/pay it from the status screen's «Сўнгги буюртмалар» list after a restart.
 - **Order cards** (`lib/screens/account.dart`) — payment pill (Тўланган / Тўланмаган /

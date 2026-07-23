@@ -35,6 +35,53 @@ void main() {
         expect(e.message, 'Bu kupon eskirgan');
       }
     });
+
+    test('documented error body: message nested inside `error`', () async {
+      // MOBILE_SHOP_API.md: {success:false, error:{code, message}}
+      final c = _client((_) => jsonBody({
+            'success': false,
+            'error': {'code': 'VALIDATION_ERROR', 'message': 'Coupon is invalid or expired'}
+          }, 400));
+      try {
+        await c.getData('/web/x');
+        fail('should have thrown');
+      } on ApiException catch (e) {
+        expect(e.message, 'Coupon is invalid or expired');
+        expect(e.code, 'VALIDATION_ERROR');
+      }
+    });
+  });
+
+  group('PageResponse shape (MOBILE_SHOP_API.md)', () {
+    test('unwraps {success, data:{content, page}} and derives `last`', () async {
+      final c = _client((_) => jsonBody({
+            'success': true,
+            'data': {
+              'content': [
+                {'id': 1, 'name': 'Cola 1L'}
+              ],
+              // Documented page block has size/totalElements but no `last`.
+              'page': {'number': 2, 'size': 20, 'totalElements': 42, 'totalPages': 3}
+            }
+          }, 200));
+      final page = await c.getPage('/web/catalog/products', (j) => j['name'] as String);
+      expect(page.content, ['Cola 1L']);
+      expect(page.number, 2);
+      expect(page.totalPages, 3);
+      expect(page.last, true); // 2 == totalPages-1 → derived last
+    });
+
+    test('bare {content, page} without the envelope still parses', () async {
+      final c = _client((_) => jsonBody({
+            'content': [
+              {'id': 1, 'name': 'x'}
+            ],
+            'page': {'number': 0, 'totalPages': 3}
+          }, 200));
+      final page = await c.getPage('/web/catalog/products', (j) => j['name'] as String);
+      expect(page.content.length, 1);
+      expect(page.last, false);
+    });
   });
 
   group('PaymentRepository contract (#11/#24)', () {

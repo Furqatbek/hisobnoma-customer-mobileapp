@@ -77,6 +77,20 @@ void main() {
       expect(_order(method: 'CASH', pay: 'PENDING').awaitingPayment, false);
     });
 
+    test('ShopUser normalizes the API phone (no +, 998-prefixed) to local 9', () {
+      // MOBILE_SHOP_API.md: /me returns "phone": "998901234567".
+      final u = ShopUser.fromJson({'phone': '998901234567', 'name': 'Ali'});
+      expect(u.phone, '901234567');
+      expect(ShopUser.fromJson({'phone': '+998901234567', 'name': ''}).phone, '901234567');
+      expect(ShopUser.fromJson({'phone': '901234567', 'name': ''}).phone, '901234567');
+    });
+
+    test('Order parses the echoed delivery address', () {
+      final o = Order.fromJson({'orderNumber': 'WO-1', 'address': 'Chilonzor 5, dom 12'});
+      expect(o.address, 'Chilonzor 5, dom 12');
+      expect(Order.fromJson({'orderNumber': 'WO-2'}).address, '');
+    });
+
     test('OrderPayment parses url fallback and terminal states', () {
       final p = OrderPayment.fromJson({'status': 'pending', 'url': 'https://x/pay'});
       expect(p.paymentUrl, 'https://x/pay');
@@ -183,7 +197,12 @@ void main() {
   });
 
   group('Checkout payment section', () {
-    testWidgets('offers cash and card; selection updates the summary', (tester) async {
+    testWidgets('cash-only build hides the method selector; summary says cash',
+        (tester) async {
+      // Backend is cash-on-delivery only and ignores paymentMethod
+      // (MOBILE_SHOP_API.md) — so with ONLINE_PAYMENT off no selector shows.
+      expect(ApiConfig.onlinePaymentEnabled, false);
+
       // Tall surface so the lazy ListView builds the summary card too.
       tester.view.physicalSize = const Size(390 * 3, 1500 * 3);
       tester.view.devicePixelRatio = 3;
@@ -193,14 +212,9 @@ void main() {
       await tester.pumpWidget(_wrap(CheckoutScreen(app: app)));
       await tester.pumpAndSettle();
 
-      // Option title + summary row both show the selected method (cash default).
-      expect(find.text('Нақд пул'), findsNWidgets(2));
-      expect(find.text('Карта орқали'), findsOneWidget);
-
-      await tester.tap(find.text('Карта орқали'));
-      await tester.pumpAndSettle();
-      expect(find.text('Карта орқали'), findsNWidgets(2));
-      expect(find.text('Нақд пул'), findsOneWidget);
+      expect(find.text('ТЎЛОВ УСУЛИ'), findsNothing); // section header absent
+      expect(find.text('Карта орқали'), findsNothing);
+      expect(find.text('Нақд пул'), findsOneWidget); // summary row only
     });
   });
 

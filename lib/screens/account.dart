@@ -84,6 +84,22 @@ class OrderCard extends StatelessWidget {
                   ],
                 ),
               ),
+            if (order.address.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(tr('Манзил'), style: ts(size: 14.5, color: AppColors.sec)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(order.address,
+                          textAlign: TextAlign.right,
+                          style: ts(size: 14.5, color: AppColors.sec, height: 1.35)),
+                    ),
+                  ],
+                ),
+              ),
             if (order.deliveryFee > 0)
               _feeRow(tr('Етказиб бериш'), formatSum(order.deliveryFee)),
             // Promotions and coupon are separate, non-overlapping amounts
