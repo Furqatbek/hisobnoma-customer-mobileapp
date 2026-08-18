@@ -371,6 +371,23 @@ void main() {
       expect(find.text('Тўлаш'), findsNothing);
     });
 
+    testWidgets('cash order with NONE status: method row but no unpaid pill',
+        (tester) async {
+      // The backend creates every order CASH/NONE; cash settles at the door,
+      // so history must not stamp them all "Тўланмаган".
+      await tester.pumpWidget(
+          _wrap(OrderCard(order: _order(method: 'CASH', pay: 'NONE'), onPay: () {})));
+      expect(find.text('Нақд пул'), findsOneWidget);
+      expect(find.text('Тўланмаган'), findsNothing);
+      expect(find.text('Тўлаш'), findsNothing);
+    });
+
+    testWidgets('cash order marked PAID still shows the paid pill', (tester) async {
+      await tester.pumpWidget(
+          _wrap(OrderCard(order: _order(method: 'CASH', pay: 'PAID', status: 'COMPLETED'), onPay: () {})));
+      expect(find.text('Тўланган'), findsOneWidget);
+    });
+
     testWidgets('legacy order without payment fields: no payment row', (tester) async {
       await tester.pumpWidget(_wrap(OrderCard(order: _order(method: '', pay: ''), onPay: () {})));
       expect(find.text('Тўлов'), findsNothing);

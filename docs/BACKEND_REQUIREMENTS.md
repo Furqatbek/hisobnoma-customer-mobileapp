@@ -53,9 +53,25 @@ Earlier rollout notes:
 - **§7 fractional** is live client-side: products with `fractional: true` +
   `step` use a decimal stepper; order lines send decimal `quantity`.
 
-**Cross-team open items (neither blocks the other):**
-- *Backend:* wire the real Payme/Click provider webhooks (needs merchant +
-  sandbox credentials); until then payments are confirmed by staff.
+**Backend response (2026-08-18, `BACKEND_RESPONSE_CUSTOMER_APP.md`):**
+- ✅ **Order history parity shipped** — `GET /me/orders` now returns
+  `paymentMethod`, `paymentStatus` and `address` (previously only the
+  single-order view did). No client change was needed: `Order.fromJson`
+  already parsed all three defensively, so pills and address rows simply
+  appear in history now. One client refinement followed: since every order
+  is created `CASH`/`NONE`, the unpaid-ish pill is now shown **only for
+  card orders** (PAID/REFUNDED still show for any method) — otherwise all
+  cash history would read "Тўланмаган".
+- ✅ Everything else in this spec confirmed live.
+- ⏸ **Online payments blocked on business input, not code:** the provider
+  webhook needs **merchant credentials (Payme and/or Click) + sandbox
+  access** supplied to the backend team. Until then `POST …/payment` keeps
+  returning `503 PAYMENT_NOT_CONFIGURED` (client degrades to
+  pay-on-delivery) and `ONLINE_PAYMENT` stays off.
+
+**Cross-team open items:**
+- *Business:* provide Payme/Click merchant credentials + sandbox to the
+  backend team (unblocks the provider webhook).
 - *Client:* configure Android App Links / iOS Universal Links so the
   `returnUrl` deep-link can reopen the app — **not blocking**, polling is the
   primary confirmation path.

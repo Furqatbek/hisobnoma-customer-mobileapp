@@ -20,6 +20,17 @@ class OrderCard extends StatelessWidget {
   final VoidCallback? onPay;
   const OrderCard({super.key, required this.order, this.expanded = true, this.onPay});
 
+  /// Payment pill: PAID/REFUNDED are real signal for any method, but the
+  /// unpaid-ish states (NONE/PENDING/…) only matter for card orders — every
+  /// cash order is NONE by definition (settled at the door), and stamping all
+  /// of history "Тўланмаган" would be noise.
+  OrderStatusMeta? _payPillMeta(Order order) {
+    final m = paymentStatusMeta[order.paymentStatus];
+    if (m == null) return null;
+    final settled = order.paymentStatus == 'PAID' || order.paymentStatus == 'REFUNDED';
+    return (settled || order.paymentMethod == 'CARD') ? m : null;
+  }
+
   Widget _feeRow(String label, String value, {Color valueColor = AppColors.sec}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -126,7 +137,7 @@ class OrderCard extends StatelessWidget {
                       children: [
                         Text(tr(paymentMethods[order.paymentMethod]!.label),
                             style: ts(size: 14.5, color: AppColors.sec)),
-                        if (paymentStatusMeta[order.paymentStatus] case final m?) ...[
+                        if (_payPillMeta(order) case final m?) ...[
                           const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
