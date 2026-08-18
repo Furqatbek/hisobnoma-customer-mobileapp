@@ -3,9 +3,11 @@
 ///               --dart-define=API_TENANT_ID=1
 class ApiConfig {
   /// Base URL up to and including `/api/v1` (paths add `/web/...`).
+  /// Defaults to the production shop; point elsewhere for local dev, e.g.
+  ///   flutter run --dart-define=API_BASE_URL=http://localhost:8080/api/v1
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:8080/api/v1',
+    defaultValue: 'https://temurmchj.uz/api/v1',
   );
 
   /// Tenant header value (single-shop installs default to "1").
