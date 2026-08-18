@@ -65,14 +65,16 @@ dev_dependencies:
 flutter_launcher_icons:
   image_path: "assets/icon/app_icon.png"
   android: true
-  adaptive_icon_background: "#FFFFFF"
+  # Sampled from the logo's own dark background so the adaptive foreground
+  # (logo at 66% on the same colour) blends seamlessly under any mask.
+  adaptive_icon_background: "#242220"
   adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
   ios: true
   remove_alpha_ios: true
   web:
     generate: true
     image_path: "assets/icon/app_icon.png"
-    background_color: "#FFFFFF"
+    background_color: "#242220"
     theme_color: "#0D9488"
 
 # For information on the generic Dart part of this file, see the
