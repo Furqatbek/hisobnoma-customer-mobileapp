@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required in the MAIN manifest for release builds: the Flutter template
+         only grants INTERNET in the debug/profile manifests (for hot reload),
+         so without this line a release APK cannot reach the API at all. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="hisobnoma_shop"
         android:name="${applicationName}"
