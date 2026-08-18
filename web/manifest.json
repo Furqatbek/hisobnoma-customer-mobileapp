@@ -1,11 +1,11 @@
 {
-    "name": "hisobnoma_shop",
-    "short_name": "hisobnoma_shop",
+    "name": "Sheben N1",
+    "short_name": "Sheben N1",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "Hisobnoma Shop — mobile storefront",
+    "description": "Sheben N1 — онлайн дўкон",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

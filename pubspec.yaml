@@ -1,5 +1,7 @@
+# NOTE: `name` is the Dart package name (imports depend on it) — the
+# user-visible app name is "Sheben N1", set in the platform manifests.
 name: hisobnoma_shop
-description: "Hisobnoma Shop — mobile storefront"
+description: "Sheben N1 — mobile storefront"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -46,6 +48,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.14.4
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -53,6 +56,24 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+
+# Launcher icons are generated from the brand logo with
+#   dart run flutter_launcher_icons
+# Source of truth: assets/icon/app_icon.png (1024×1024) and
+# assets/icon/app_icon_foreground.png (logo centred with safe-zone padding,
+# for the Android adaptive icon; background stays brand white).
+flutter_launcher_icons:
+  image_path: "assets/icon/app_icon.png"
+  android: true
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icon/app_icon_foreground.png"
+  ios: true
+  remove_alpha_ios: true
+  web:
+    generate: true
+    image_path: "assets/icon/app_icon.png"
+    background_color: "#FFFFFF"
+    theme_color: "#0D9488"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

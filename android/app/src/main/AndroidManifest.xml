@@ -4,7 +4,7 @@
          so without this line a release APK cannot reach the API at all. -->
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
-        android:label="hisobnoma_shop"
+        android:label="Sheben N1"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

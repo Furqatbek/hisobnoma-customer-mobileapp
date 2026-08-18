@@ -31,7 +31,7 @@ class HisobnomaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Hisobnoma Shop',
+      title: 'Sheben N1',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         scaffoldBackgroundColor: AppColors.bg,
