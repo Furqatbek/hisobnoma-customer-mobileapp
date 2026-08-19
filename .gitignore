@@ -51,3 +51,6 @@ app.*.map.json
 
 # Kotlin/Gradle build scratch (session files created during builds)
 /android/.kotlin/
+
+# Golden outputs are regenerated on demand (store screenshots live in assets/store)
+/test/goldens/

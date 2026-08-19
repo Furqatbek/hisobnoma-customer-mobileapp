@@ -141,6 +141,13 @@ class AppState extends ChangeNotifier {
 
   // ── session / wishlist / notifications (delegates to SessionController) ──
   ShopUser? get user => _session.user;
+
+  /// Test seam: inject a session user without running the OTP flow.
+  @visibleForTesting
+  set debugUser(ShopUser? u) {
+    _session.user = u;
+    notifyListeners();
+  }
   bool get isLoggedIn => _session.isLoggedIn;
   DateTime? get otpCooldownUntil => _session.otpCooldownUntil;
   int get otpCooldownRemaining => _session.otpCooldownRemaining;

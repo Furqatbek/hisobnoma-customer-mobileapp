@@ -164,8 +164,15 @@ class ProductCard extends StatelessWidget {
                   style: ts(size: 16, weight: FontWeight.w700, color: AppColors.text, letterSpacing: -0.2)),
               if (product.oldPrice != null) ...[
                 const SizedBox(width: 6),
-                Text(formatSum(product.oldPrice),
-                    style: ts(size: 12.5, color: AppColors.ter, decoration: TextDecoration.lineThrough)),
+                // Two six-digit sums don't always fit a narrow grid card —
+                // fade the struck-through old price instead of overflowing.
+                Flexible(
+                  child: Text(formatSum(product.oldPrice),
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.fade,
+                      style: ts(size: 12.5, color: AppColors.ter, decoration: TextDecoration.lineThrough)),
+                ),
               ],
             ],
           ),
