@@ -252,9 +252,13 @@ void main() {
     }
   });
   final configs = <(String, double, double, double, bool)>[
+    // Google Play
     ('phone', 360, 640, 3.0, true), // 1080×1920, full set
     ('tablet7', 576, 1024, 2.0, false), // 1152×2048
     ('tablet10', 720, 1280, 2.0, false), // 1440×2560
+    // App Store Connect (one 6.7" iPhone set + one 13" iPad set cover all)
+    ('iphone67', 430, 932, 3.0, true), // 1290×2796
+    ('ipad13', 1024, 1366, 2.0, false), // 2048×2732
   ];
 
   for (final (tag, w, h, dpr, fullSet) in configs) {
