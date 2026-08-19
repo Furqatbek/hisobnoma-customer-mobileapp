@@ -1,4 +1,4 @@
-package com.hisobnoma.hisobnoma_shop
+package uz.temurmchj.sheben
 
 import io.flutter.embedding.android.FlutterActivity
 
