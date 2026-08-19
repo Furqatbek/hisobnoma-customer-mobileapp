@@ -1,0 +1,41 @@
+name: iOS build
+
+# Manual trigger — macOS runners are free for public repos but slower;
+# run when you actually need an archive.
+on:
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.44.2"
+          channel: stable
+      - run: flutter pub get
+
+      # Unsigned archive: compiles the full iOS app (pods, Swift, assets) on
+      # Apple hardware. Export to .ipa is intentionally skipped — signing needs
+      # your Apple Developer identity.
+      #
+      # To ship: download the artifact on any Mac with Xcode, unzip, double-click
+      # Runner.xcarchive → Xcode Organizer → "Distribute App" → App Store
+      # Connect. Xcode handles signing with your team (bundle id
+      # uz.temurmchj.sheben must be registered in your developer account).
+      #
+      # Full automation later (optional): add an App Store Connect API key +
+      # distribution certificate as repo secrets and replace the no-codesign
+      # build with a signed `flutter build ipa --export-options-plist` step.
+      - run: flutter build ipa --release --no-codesign
+
+      - name: Zip archive
+        run: cd build/ios/archive && zip -qry Runner.xcarchive.zip Runner.xcarchive
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sheben-n1-ios-xcarchive
+          path: build/ios/archive/Runner.xcarchive.zip
+          retention-days: 30
