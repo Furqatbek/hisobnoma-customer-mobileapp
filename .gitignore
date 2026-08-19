@@ -48,3 +48,6 @@ app.*.map.json
 /android/key.properties
 *.jks
 *.keystore
+
+# Kotlin/Gradle build scratch (session files created during builds)
+/android/.kotlin/
