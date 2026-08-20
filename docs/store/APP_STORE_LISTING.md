@@ -110,9 +110,8 @@ Same substance as the Play data-safety form:
 - **Contact Info → Physical Address** — App Functionality, linked to user (delivery).
 - **Purchases → Purchase History** — App Functionality, linked to user.
 - **No** data used for tracking; **no** third-party advertising; no location, no contacts.
-- Account deletion: state that users can request deletion via the contact in
-  the privacy policy. (Apple requires in-app account deletion for apps with
-  account creation — see §8.)
+- Account deletion: **available in-app** — Профиль → «Аккаунтни ўчириш»
+  (calls `DELETE /web/me`). Satisfies Guideline 5.1.1(v).
 
 ## 7. App Review Information
 
@@ -130,6 +129,8 @@ this test number; the code is always 123456.
 Signed-in areas: Профиль (order history), Ҳамён (cashback + QR code),
 Севимлилар (wishlist), Купонлар (coupons).
 
+Account deletion is available in-app: Профиль → «Аккаунтни ўчириш».
+
 Language can be switched in Профиль → Тил (Uzbek / Russian).
 Payment is cash on delivery only; online card payment is disabled in this
 version, so no purchase is required to review the app.
@@ -137,11 +138,11 @@ version, so no purchase is required to review the app.
 
 ## 8. Known Apple-specific follow-ups
 
-- **Account deletion (Guideline 5.1.1(v)):** apps that let users create an
-  account must offer in-app account deletion. The app has sign-in but no
-  delete-account action yet — Apple may reject on this. Fix = one profile
-  screen action calling a backend delete endpoint (needs a backend endpoint;
-  not required by Google).
+- **Account deletion (Guideline 5.1.1(v)): ✅ done.** Профиль →
+  «Аккаунтни ўчириш» → confirmation dialog → `DELETE /web/me`. Deletion is
+  immediate and irreversible; cashback is forfeited; blocked with a message
+  while an order is still in flight. Mention the path in the review notes if
+  the reviewer asks where it lives.
 - **Guest-first is a plus:** because ordering works without an account, the
   reviewer can exercise the core flow even before signing in.
 - **No push notifications yet**, so no APNs configuration is needed for 1.0.
