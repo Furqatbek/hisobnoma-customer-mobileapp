@@ -113,6 +113,20 @@ Same substance as the Play data-safety form:
 - Account deletion: **available in-app** — Профиль → «Аккаунтни ўчириш»
   (calls `DELETE /web/me`). Satisfies Guideline 5.1.1(v).
 
+## 6b. Export compliance (encryption)
+
+Connect asks "what encryption does your app use?" — answer
+**«Ни один из вышеперечисленных алгоритмов» / "None of the above"**.
+
+Basis: the app uses only exempt encryption — HTTPS through the OS network
+stack and the iOS Keychain (`flutter_secure_storage`). There is no proprietary
+algorithm and no custom cryptography in the app code.
+
+`ITSAppUsesNonExemptEncryption = false` is now set in `ios/Runner/Info.plist`,
+so from the next build Connect stops asking entirely. **Revisit this if the app
+ever adds its own encryption** (e.g. encrypting data at rest with a bundled
+crypto library) — the declaration must stay truthful.
+
 ## 7. App Review Information
 
 - **Sign-in required:** Yes.

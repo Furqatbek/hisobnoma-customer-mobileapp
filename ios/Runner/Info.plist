@@ -24,6 +24,12 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- Export compliance: the app uses only exempt encryption — HTTPS via the
+	     OS network stack and the iOS Keychain (flutter_secure_storage). No
+	     proprietary or custom cryptography. Declaring it here stops App Store
+	     Connect asking on every upload. Revisit if custom crypto is ever added. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
