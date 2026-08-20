@@ -145,6 +145,12 @@ class AuthRepository {
   }
 
   Future<ShopUser> me() async => ShopUser.fromJson(await _c.getData('/web/me') as Map<String, dynamic>);
+
+  /// Irreversibly deletes the signed-in customer's account. The server takes
+  /// the account from the bearer token, so this can only delete "me".
+  /// Throws ApiException with code `ACCOUNT_HAS_ACTIVE_ORDERS` (409) while an
+  /// order is still in flight.
+  Future<void> deleteMe() => _c.delete('/web/me');
 }
 
 class LoyaltyRepository {

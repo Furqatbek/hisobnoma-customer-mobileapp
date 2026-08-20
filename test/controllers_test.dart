@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,6 +9,8 @@ import 'package:hisobnoma_shop/data/repositories.dart';
 import 'package:hisobnoma_shop/state/cart_controller.dart';
 import 'package:hisobnoma_shop/state/nav_controller.dart';
 import 'package:hisobnoma_shop/state/session_controller.dart';
+
+import 'support/fake_adapter.dart';
 
 Product _p(int id) => Product(
       id: id,
@@ -29,6 +32,17 @@ Future<CartController> _cart() async {
 }
 
 void main() {
+  // TokenStore uses flutter_secure_storage, which needs a bound test
+  // environment and a stubbed platform channel.
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      const MethodChannel('plugins.it_nomads.com/flutter_secure_storage'),
+      (call) async => call.method == 'readAll' ? <String, String>{} : null,
+    );
+  });
+
   group('NavController', () {
     test('push/pop/replace/setTab track motion and stack', () {
       final n = NavController();
@@ -143,6 +157,40 @@ void main() {
       expect(s.toggleWish(1), false);
       expect(s.isWished(1), false);
       expect(toasts, 0);
+    });
+
+    test('deleteAccount clears the session; a refusal keeps it', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      SessionController withApi(ApiClient api) => SessionController(
+            prefs: prefs,
+            tokens: TokenStore(),
+            api: api,
+            auth: AuthRepository(api),
+            wishlistApi: WishlistRepository(api),
+            notificationsApi: NotificationRepository(api),
+            deviceTokens: DeviceTokenRepository(api),
+            toast: (_) {},
+          );
+
+      // Success → local session wiped.
+      final ok = withApi(ApiClient(TokenStore(),
+          adapter: FakeAdapter((_) => jsonBody({'success': true}, 200))));
+      ok.user = const ShopUser(phone: '901234567', name: 'Ali');
+      await ok.deleteAccount();
+      expect(ok.user, isNull);
+      expect(ok.isLoggedIn, false);
+
+      // 409 → throws, session untouched so the user can finish the order.
+      final blocked = withApi(ApiClient(TokenStore(),
+          adapter: FakeAdapter((_) => jsonBody({
+                'success': false,
+                'error': {'code': 'ACCOUNT_HAS_ACTIVE_ORDERS', 'message': 'Фаол буюртма'}
+              }, 409))));
+      blocked.user = const ShopUser(phone: '901234567', name: 'Ali');
+      await expectLater(blocked.deleteAccount(), throwsA(isA<ApiException>()));
+      expect(blocked.isLoggedIn, true);
     });
 
     test('OTP cooldown persists across controller instances', () async {

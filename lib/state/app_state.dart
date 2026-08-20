@@ -177,6 +177,13 @@ class AppState extends ChangeNotifier {
     return _session.logout();
   }
 
+  /// Irreversible account deletion (Apple 5.1.1(v) / Play Data Safety).
+  /// Throws ApiException when the server refuses (e.g. active orders).
+  Future<void> deleteAccount() async {
+    await _session.deleteAccount();
+    _nav.resetMotion();
+  }
+
   // ── language ───────────────────────────────────────────────
   String lang = 'uz';
 

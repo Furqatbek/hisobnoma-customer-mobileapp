@@ -120,6 +120,36 @@ void main() {
       expect(captured!.uri.query, isEmpty);
     });
 
+    test('deleteMe issues DELETE /web/me with no query', () async {
+      RequestOptions? captured;
+      final repo = AuthRepository(_client((o) {
+        captured = o;
+        return jsonBody({'success': true, 'message': 'Account deleted'}, 200);
+      }));
+      await repo.deleteMe();
+      expect(captured!.method, 'DELETE');
+      expect(captured!.uri.path, endsWith('/web/me'));
+      expect(captured!.uri.query, isEmpty); // account comes from the token
+    });
+
+    test('409 ACCOUNT_HAS_ACTIVE_ORDERS surfaces code + message', () async {
+      final repo = AuthRepository(_client((_) => jsonBody({
+            'success': false,
+            'error': {
+              'code': 'ACCOUNT_HAS_ACTIVE_ORDERS',
+              'message': 'Фаол буюртмангиз бор. Етказиб берилгач қайта уриниб кўринг.'
+            }
+          }, 409)));
+      try {
+        await repo.deleteMe();
+        fail('should have thrown');
+      } on ApiException catch (e) {
+        expect(e.status, 409);
+        expect(e.code, 'ACCOUNT_HAS_ACTIVE_ORDERS');
+        expect(e.message, contains('Фаол буюртмангиз'));
+      }
+    });
+
     test('503 PAYMENT_NOT_CONFIGURED surfaces as a coded ApiException', () async {
       final repo = PaymentRepository(_client((_) => jsonBody({
             'success': false,

@@ -427,10 +427,88 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: ShopTextButton(color: AppColors.red, onTap: () => app.logout(), child: Text(tr('Чиқиш'))),
             ),
           ),
+          Center(
+            child: ShopTextButton(
+              color: AppColors.ter,
+              fontSize: 14,
+              onTap: () => _confirmDelete(context),
+              child: Text(tr('Аккаунтни ўчириш')),
+            ),
+          ),
         ],
       ),
       ),
     );
+  }
+
+  /// Irreversible account deletion (Apple 5.1.1(v) / Play Data Safety). The
+  /// dialog spells out exactly what the server deletes — including the
+  /// forfeited cashback — so the confirmation isn't a blind tap.
+  Future<void> _confirmDelete(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.card)),
+        title: Text(tr('Аккаунтни ўчирасизми?'),
+            style: ts(size: 18, weight: FontWeight.w700, color: AppColors.text, letterSpacing: -0.3)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(tr('Бу амални ортга қайтариб бўлмайди. Қуйидагилар ўчирилади:'),
+                style: ts(size: 14.5, color: AppColors.sec, height: 1.4)),
+            const SizedBox(height: 10),
+            for (final line in [
+              'Профил маълумотларингиз (исм, телефон)',
+              'Севимлилар, билдиришномалар ва купонлар',
+              'Таклиф коди ва статистика',
+              'Кешбек баланси бекор қилинади',
+            ])
+              Padding(
+                padding: const EdgeInsets.only(bottom: 5),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('•  ', style: ts(size: 14.5, color: AppColors.sec)),
+                    Expanded(
+                      child: Text(tr(line), style: ts(size: 14.5, color: AppColors.text, height: 1.35)),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 6),
+            Text(tr('Бажарилган буюртмалар ҳисоб-китоб учун сақланади, лекин шахсий маълумотларсиз'),
+                style: ts(size: 13, color: AppColors.ter, height: 1.4)),
+            const SizedBox(height: 6),
+            Text(tr('Кейинчалик шу рақам билан қайтадан рўйхатдан ўтишингиз мумкин'),
+                style: ts(size: 13, color: AppColors.ter, height: 1.4)),
+          ],
+        ),
+        actions: [
+          ShopTextButton(
+            color: AppColors.sec,
+            onTap: () => Navigator.of(ctx).pop(false),
+            child: Text(tr('Бекор қилиш')),
+          ),
+          ShopTextButton(
+            color: AppColors.red,
+            onTap: () => Navigator.of(ctx).pop(true),
+            child: Text(tr('Ҳа, ўчириш')),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    try {
+      await app.deleteAccount();
+      app.toast(tr('Аккаунт ўчирилди'));
+      app.setTab('catalog');
+    } on ApiException catch (e) {
+      // e.g. 409 ACCOUNT_HAS_ACTIVE_ORDERS — session stays, show why.
+      app.toast(e.message);
+    }
   }
 }
 

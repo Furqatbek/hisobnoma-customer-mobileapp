@@ -140,6 +140,17 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Irreversibly deletes the account, then clears the local session exactly
+  /// like a logout. Rethrows ApiException so the caller can surface a blocking
+  /// reason (e.g. ACCOUNT_HAS_ACTIVE_ORDERS) with the session still intact.
+  Future<void> deleteAccount() async {
+    await auth.deleteMe(); // throws → session untouched
+    // Server-side tokens are already revoked; drop the local copy too.
+    await _tokens.clear();
+    _clearSession();
+    notifyListeners();
+  }
+
   void _onUnauthorized() {
     final wasLoggedIn = user != null;
     _tokens.clear();
