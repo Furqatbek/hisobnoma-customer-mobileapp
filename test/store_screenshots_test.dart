@@ -256,8 +256,12 @@ void main() {
     ('phone', 360, 640, 3.0, true), // 1080×1920, full set
     ('tablet7', 576, 1024, 2.0, false), // 1152×2048
     ('tablet10', 720, 1280, 2.0, false), // 1440×2560
-    // App Store Connect (one 6.7" iPhone set + one 13" iPad set cover all)
-    ('iphone67', 430, 932, 3.0, true), // 1290×2796
+    // App Store Connect. Slot sizes differ per Connect's display families:
+    //   6.5" slot  → 1284×2778 (also accepts 1242×2688)
+    //   6.9" slot  → 1290×2796
+    //   iPad 13"   → 2048×2732
+    ('iphone65', 428, 926, 3.0, true), // 1284×2778 — the 6.5" slot
+    ('iphone67', 430, 932, 3.0, true), // 1290×2796 — 6.9" slot
     ('ipad13', 1024, 1366, 2.0, false), // 2048×2732
   ];
 

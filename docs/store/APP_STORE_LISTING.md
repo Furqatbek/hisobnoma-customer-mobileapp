@@ -67,8 +67,13 @@ TEMUR MCHJ, Тошкент.
 
 - **App icon:** already inside the binary (1024×1024, no alpha) —
   `assets/icon/app_icon.png` if Connect asks separately.
-- **iPhone 6.7" screenshots (required):** `assets/store/screenshots/iphone67/`
-  (1290×2796) — one set covers all iPhone sizes.
+- **iPhone screenshots (required).** Connect's slot names map to exact sizes —
+  upload the set that matches the slot it shows you:
+  - **6.5" slot** → `assets/store/screenshots/iphone65/` (**1284×2778**; the slot
+    also accepts 1242×2688). This is the one Connect asks for most often.
+  - **6.9" / 6.7" slot** → `assets/store/screenshots/iphone67/` (1290×2796).
+  Uploading the wrong pair triggers "Неверные размеры одного или нескольких
+  снимков экрана" — the aspect ratio is right, the pixel size isn't.
 - **iPad 13" screenshots (required, app runs on iPad):**
   `assets/store/screenshots/ipad13/` (2048×2732).
 
