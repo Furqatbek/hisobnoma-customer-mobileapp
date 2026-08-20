@@ -75,7 +75,12 @@ TEMUR MCHJ, Тошкент.
   Uploading the wrong pair triggers "Неверные размеры одного или нескольких
   снимков экрана" — the aspect ratio is right, the pixel size isn't.
 - **iPad 13" screenshots (required, app runs on iPad):**
-  `assets/store/screenshots/ipad13/` (2048×2732).
+  - `assets/store/screenshots/ipad13m4/` (**2064×2752** — 13" iPad Pro M4;
+    Connect lists this size first, try it first)
+  - `assets/store/screenshots/ipad13/` (2048×2732 — 12.9" iPad Pro)
+- **All screenshots are saved as RGB without an alpha channel** — Connect's
+  uploader can reject PNGs carrying alpha with a misleading "invalid
+  dimensions" message, so the harness flattens every export.
 
 ## 5. Build & upload the binary (Mac required)
 

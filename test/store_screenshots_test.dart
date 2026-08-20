@@ -262,7 +262,8 @@ void main() {
     //   iPad 13"   → 2048×2732
     ('iphone65', 428, 926, 3.0, true), // 1284×2778 — the 6.5" slot
     ('iphone67', 430, 932, 3.0, true), // 1290×2796 — 6.9" slot
-    ('ipad13', 1024, 1366, 2.0, false), // 2048×2732
+    ('ipad13', 1024, 1366, 2.0, false), // 2048×2732 — 12.9" iPad Pro
+    ('ipad13m4', 1032, 1376, 2.0, false), // 2064×2752 — 13" iPad Pro (M4)
   ];
 
   for (final (tag, w, h, dpr, fullSet) in configs) {
