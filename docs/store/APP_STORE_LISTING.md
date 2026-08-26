@@ -22,6 +22,9 @@ Everything App Store Connect asks for, ready to paste. Assets are in
 - **Category:** Primary *Shopping*; Secondary *Business* (optional).
 - **Content rights:** does not contain third-party content.
 - **Age rating questionnaire:** answer **None / No** to everything → rating **4+**.
+  ⚠️ Includes **"Age Assurance" / In-App Controls → None** — claiming parental
+  controls the app doesn't have triggers a 2.3.6 rejection (it did on the first
+  submission).
 - **Privacy policy URL:** `https://temurmchj.uz/privacy`
   (page source: `docs/store/privacy-policy.html` — same one used for Play).
 
@@ -133,6 +136,11 @@ crypto library) — the declaration must stay truthful.
 - **Demo account:** phone `+998 90 000 00 00`, code `123456`
   (fixed-OTP review account — must be provisioned by the backend team and
   exempt from SMS rate limits).
+  ⚠️ **Verify it live before every submission** — the first submission was
+  rejected under 2.1(a) because the account wasn't enabled on production:
+  `curl -s -X POST https://temurmchj.uz/api/v1/web/auth/verify -H 'X-Tenant-ID: 1' \
+   -H 'Content-Type: application/json' \
+   -d '{"phone":"+998900000000","code":"123456"}'` must return a `token`.
 - **Notes for the reviewer:**
 ```
 Browsing the catalog, the cart and placing an order work without signing in
