@@ -73,38 +73,44 @@ live call first). Reply in English:
 ```
 Hello,
 
-Thank you for the review. Both issues are now resolved:
+Thank you for the review. Both issues are now resolved.
 
 Guideline 2.3.6 — Age Rating
-The Age Rating answers were incorrect. The app does not contain parental
-controls or age assurance features. We have updated the Age Rating
-questionnaire and set "Age Assurance" to None. The app is rated 4+.
+The Age Rating answers were incorrect on our side. The app contains no
+parental controls and no age assurance features. We have corrected the Age
+Rating questionnaire and set "Age Assurance" to None.
 
 Guideline 2.1(a) — Sign in
-The demo account was not active on our production server at the time of the
-review; this has been fixed. Sign-in uses SMS one-time codes, and this test
-number is configured to always accept a fixed code (no SMS is sent):
+The demo account was not active on our production server during the review.
+This has been fixed and verified working today (26 August 2026).
 
+Demo account
   Phone: +998 90 000 00 00
   Code:  123456
 
-How to sign in:
-  1. Open the app, go to the "Профил" tab (rightmost, person icon)
+Sign-in steps:
+  1. Open the app and go to the "Профил" tab (rightmost tab, person icon)
   2. Tap "Кириш" (Sign in)
-  3. Enter the phone number above, tap "Код юбориш" (Send code)
-  4. Enter 123456, tap "Тасдиқлаш" (Confirm)
+  3. Enter the phone number above and tap "Код юбориш" (Send code)
+  4. Enter 123456 and tap "Тасдиқлаш" (Confirm)
 
-We have verified this works on our production server today.
+This number is configured on our server to always accept the code 123456, so
+you do not need to receive an SMS. Step 3 is still required, as the app
+requests a code before the entry field accepts input.
 
-Notes:
-- Browsing the catalog, adding to cart and placing an order work without an
-  account (guest checkout), so the core purchase flow can be reviewed either
-  way.
-- Signed-in areas: Профил (order history), Ҳамён (cashback + QR code),
+Additional notes
+- The demo account is new, so Профил (order history) and Ҳамён (cashback) show
+  empty states. To see the full flow you can place a test order: add any item
+  to the cart, open Сават, tap "Буюртма бериш", and complete the form. Payment
+  is cash on delivery, so no payment is taken and no purchase is required.
+- Browsing the catalog and ordering also work without signing in (guest
+  checkout).
+- Signed-in areas: Профил (order history), Ҳамён (cashback and QR code),
   Севимлилар (wishlist), Купонлар (coupons).
-- Account deletion is available in-app: Профил → "Аккаунтни ўчириш".
+- Account deletion is available in the app: Профил → "Аккаунтни ўчириш".
 - The app language can be switched in Профил → Тил (Uzbek / Russian).
-- Payment is cash on delivery only; no purchase is required to review the app.
+
+Please let us know if you need anything else to continue the review.
 
 Thank you,
 TEMUR MCHJ
